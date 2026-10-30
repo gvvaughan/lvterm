@@ -3,8 +3,12 @@ before:
 
 specify lvterm:
 - describe the backend:
-  - it is named:
-      expect(lvterm.backend).to_be 'ffi'
+  - it is one that exists:
+      known = {ffi = true, core = true}
+      expect(known[lvterm.backend]).to_be(true)
+  - it is the one that was asked for:
+      wanted = os.getenv 'LVTERM_BACKEND'
+      expect(lvterm.backend).to_be(wanted or lvterm.backend)
 
 - describe new:
   - it makes a terminal of the size asked for:
@@ -13,6 +17,9 @@ specify lvterm:
   - it makes a terminal of 24 lines and 80 columns by default:
       term = lvterm.new()
       expect({term:size()}).to_equal {24, 80}
+  - it diagnoses a size that is not positive:
+      expect(lvterm.new(0, 80)).to_raise 'positive rows and columns'
+      expect(lvterm.new(24, 0)).to_raise 'positive rows and columns'
   - it starts with an empty screen and the cursor at the top left:
       term = lvterm.new(3, 4)
       expect(term:lines()).to_equal {'    ', '    ', '    '}

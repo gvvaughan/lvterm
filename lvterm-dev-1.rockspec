@@ -51,6 +51,7 @@ build = {
       {['lvterm']        = 'lib/lvterm/init.lua'},
       {['lvterm.config'] = 'lib/lvterm/config.lua.in'},
       {['lvterm.ffi']    = 'lib/lvterm/ffi.lua'},
+      {['lvterm.terminal'] = 'lib/lvterm/terminal.lua'},
    },
 
    -- A release commits its LDocs to install.

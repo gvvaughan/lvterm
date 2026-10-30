@@ -13,39 +13,58 @@
 --     term:text(1, 2, 5)   --> 'hello'
 --     term:cursor()        --> 1, 7
 --
--- The terminal is made by the first backend that works on the host, with
--- libvterm to emulate it.
+-- libvterm emulates the terminal, called directly through the FFI of
+-- LuaJIT where there is one (the `ffi` backend), and otherwise through a
+-- thin C binding (the `core` backend).  The environment variable
+-- `LVTERM_BACKEND`, set to `ffi` or `core`, makes `lvterm` use that backend
+-- or fail, rather than fall back to another one, so that a test run is
+-- certain of which it exercises.
 --
 -- @module lvterm
 
-local backends = {'lvterm.ffi'}
+local terminal = require 'lvterm.terminal'
+
+local wanted = os.getenv 'LVTERM_BACKEND'
+
+local names = {'ffi', 'core'}
+if wanted ~= nil and wanted ~= '' then
+   names = {wanted}
+end
 
 local M = {}
 
 local failures = {}
-for _, name in ipairs(backends) do
-   local ok, backend = pcall(require, name)
+for _, name in ipairs(names) do
+   local ok, backend = pcall(require, 'lvterm.' .. name)
    if ok then
       M.backend = backend.name
-      M.new = backend.new
+      M.handle = backend.new
       break
    end
    failures[#failures + 1] = name .. ': ' .. tostring(backend)
 end
 
-if M.new == nil then
+if M.handle == nil then
    error('no lvterm backend works on this host:\n  ' ..
          table.concat(failures, '\n  '), 2)
 end
 
 
 --- Which backend makes terminals here.
--- @field backend `'ffi'`
+-- @field backend `'ffi'` or `'core'`
 
 --- Make a new virtual terminal.
--- @function new
 -- @int[opt=24] rows height in lines
 -- @int[opt=80] cols width in columns
--- @treturn lvterm.ffi.Terminal
+-- @treturn lvterm.terminal.Terminal
+function M.new(rows, cols)
+   rows, cols = rows or 24, cols or 80
+   if rows < 1 or cols < 1 then
+      error(string.format('a terminal needs positive rows and columns, not %d,%d',
+                          rows, cols), 2)
+   end
+   return terminal.new(M.handle(rows, cols), rows, cols)
+end
+
 
 return M
