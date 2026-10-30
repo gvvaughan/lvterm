@@ -29,9 +29,11 @@ build_dependencies = {
 }
 
 -- LuaRocks finds libvterm, and passes VTERM_DIR, VTERM_INCDIR and
--- VTERM_LIBDIR, which `lvterm.config` records for LuaJIT to load it from.
+-- VTERM_LIBDIR, which `lvterm.config` records for LuaJIT to load it from,
+-- and which the C backend compiles and links with.
 external_dependencies = {
    VTERM = {
+     header  = 'vterm.h',
      library = 'vterm',
    },
 }
@@ -47,10 +49,22 @@ build = {
       },
    },
 
+   -- What every module needs, which only the C backend compiles with.
+   incdirs  = {
+      '$LUA_INCDIR',
+   },
+
+   external_dependencies = {
+      {VTERM = {
+         library = {checksymbol = 'vterm_new', library = 'vterm'},
+      }},
+   },
+
    modules  = {
-      {['lvterm']        = 'lib/lvterm/init.lua'},
-      {['lvterm.config'] = 'lib/lvterm/config.lua.in'},
-      {['lvterm.ffi']    = 'lib/lvterm/ffi.lua'},
+      {['lvterm']          = 'lib/lvterm/init.lua'},
+      {['lvterm.config']   = 'lib/lvterm/config.lua.in'},
+      {['lvterm.core']     = 'ext/lvterm.c'},
+      {['lvterm.ffi']      = 'lib/lvterm/ffi.lua'},
       {['lvterm.terminal'] = 'lib/lvterm/terminal.lua'},
    },
 

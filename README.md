@@ -25,16 +25,21 @@ term:cell(1, 7).fg    --> 1   (red, in the palette of 256 colors)
 Rows and columns are numbered from 0, like the arguments of curses.
 
 The terminal is emulated by [libvterm][], which also does the work for
-Neovim.  Only [LuaJIT][]'s FFI can call it so far, so lvterm needs
-LuaJIT until there is a backend for the other Lua versions.
+Neovim.  [LuaJIT][] calls it directly through its FFI, and every other
+Lua version through a thin C binding, so lvterm works on Lua 5.1 to 5.5
+and LuaJIT.  Both backends make terminals that behave the same, which the
+specs check by comparing one with the other.
+
+To test with a particular backend, set `LVTERM_BACKEND` to `ffi` or `core`:
+`lvterm` then uses that one, or fails, and never falls back to the other.
 
 
 Installation
 ------------
 
-If you use [LuaRocks][], install libvterm with your package manager (the
-package is usually called `libvterm-dev`, or `libvterm` with Homebrew),
-then:
+If you use [LuaRocks][], install libvterm and its headers with your
+package manager (the package is usually called `libvterm-dev`, or
+`libvterm` with Homebrew), then:
 
     luarocks install lvterm
 
