@@ -1,0 +1,31 @@
+specify the backends:
+- describe agree on:
+  - it plain text, wrapped and scrolled:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences(noise(0) .. string.rep('wrap around this line ', 90), 5, 20)).to_equal {}
+  - it attributes and colors:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('\27[1mb\27[3mi\27[4mu\27[5mk\27[7mr\27[8mc\27[9ms\27[0mn\27[31;44mc\27[38;5;202mx\27[48;2;1;2;3my')).to_equal {}
+  - it wide and combining characters:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('\228\184\173\230\150\135 e\204\129 \227\130\162a', 3, 20)).to_equal {}
+  - it line drawing characters:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('\27(0lqqqk\r\nx   x\r\nmqqqj\27(B done', 5, 20)).to_equal {}
+  - it the alternate screen:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('main\27[?1049h\27[2Jalt\27[?1049l back')).to_equal {}
+  - it scroll regions and inserting and deleting:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('\27[2;5r\27[2;1Hone\r\ntwo\r\nsix\r\nten\r\nend\27[2;1H\27[2L\27[1M\27[3@\27[2P', 8, 20)).to_equal {}
+  - it what the terminal sends back:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('\27[3;4H\27[6n\27[c', 5, 20)).to_equal {}
+  - it a resize between writes:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('abcdefghij\r\nklmnopqrst', 5, 20, 'uvw', {3, 8})).to_equal {}
+  - it a long deterministic stream of everything above, at several sizes:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences(noise(3000), 24, 80)).to_equal {}
+      expect(differences(noise(3000), 7, 13)).to_equal {}
+      expect(differences(noise(3000), 1, 5)).to_equal {}

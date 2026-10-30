@@ -11,11 +11,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The only backend is LuaJIT's FFI, until there is one for the
-        # other Luas.
-        lua-version: ["luajit"]
+        lua-version: ["5.5", "5.4", "5.3", "5.2", "5.1", "luajit"]
 
     runs-on: ubuntu-latest
+
+    # Make each cell certain of the backend that it tests: LuaJIT's FFI on
+    # LuaJIT, which has to fail rather than use the C one, and the C backend
+    # everywhere else.
+    env:
+      LVTERM_BACKEND: ${{ matrix.lua-version == 'luajit' && 'ffi' || 'core' }}
 
     # id-token lets codecov-action authenticate uploads with OIDC.
     permissions:
@@ -55,6 +59,13 @@ jobs:
           luke LDOC="ldoc --fatalwarnings"
 
       - name: test
+        run: |
+          luarocks test
+
+      - name: test the C backend on LuaJIT too
+        if: matrix.lua-version == 'luajit'
+        env:
+          LVTERM_BACKEND: core
         run: |
           luarocks test
 
