@@ -1,0 +1,182 @@
+before:
+  lvterm = require 'lvterm'
+
+specify lvterm:
+- describe the backend:
+  - it is named:
+      expect(lvterm.backend).to_be 'ffi'
+
+- describe new:
+  - it makes a terminal of the size asked for:
+      term = lvterm.new(5, 20)
+      expect({term:size()}).to_equal {5, 20}
+  - it makes a terminal of 24 lines and 80 columns by default:
+      term = lvterm.new()
+      expect({term:size()}).to_equal {24, 80}
+  - it starts with an empty screen and the cursor at the top left:
+      term = lvterm.new(3, 4)
+      expect(term:lines()).to_equal {'    ', '    ', '    '}
+      expect({term:cursor()}).to_equal {0, 0}
+
+- describe write:
+  - it puts text at the cursor and moves the cursor:
+      term = lvterm.new(5, 20)
+      term:write 'hello'
+      expect(term:text(0, 0, 5)).to_be 'hello'
+      expect({term:cursor()}).to_equal {0, 5}
+  - it returns the terminal, so calls can be chained:
+      term = lvterm.new(5, 20)
+      expect(term:write('a'):write('b')).to_be(term)
+      expect(term:text(0, 0, 2)).to_be 'ab'
+  - it moves the cursor when told to:
+      term = lvterm.new(5, 20)
+      term:write '\27[3;5Hx'
+      expect(term:text(2, 4, 1)).to_be 'x'
+      expect({term:cursor()}).to_equal {2, 5}
+  - it moves to the start of the next line:
+      term = lvterm.new(5, 20)
+      term:write 'ab\r\ncd'
+      expect(term:text(0, 0, 2)).to_be 'ab'
+      expect(term:text(1, 0, 2)).to_be 'cd'
+  - it wraps at the end of a line:
+      term = lvterm.new(3, 4)
+      term:write 'abcde'
+      expect(term:row(0)).to_be 'abcd'
+      expect(term:row(1)).to_be 'e   '
+      expect({term:cursor()}).to_equal {1, 1}
+  - it scrolls at the bottom of the screen:
+      term = lvterm.new(2, 3)
+      term:write 'one\r\ntwo\r\nsix'
+      expect(term:lines()).to_equal {'two', 'six'}
+  - it erases the screen:
+      term = lvterm.new(2, 3)
+      term:write('abc'):write '\27[2J'
+      expect(term:lines()).to_equal {'   ', '   '}
+  - it erases to the end of the line:
+      term = lvterm.new(2, 4)
+      term:write 'abcd\27[1;3H\27[K'
+      expect(term:row(0)).to_be 'ab  '
+  - it decodes UTF-8:
+      term = lvterm.new(2, 6)
+      term:write 'h\195\169llo'
+      expect(term:text(0, 0, 5)).to_be 'h\195\169llo'
+  - it draws lines from the DEC special graphics character set:
+      term = lvterm.new(2, 6)
+      term:write '\27(0lqqk\27(B'
+      expect(term:text(0, 0, 4)).to_be '\226\148\140\226\148\128\226\148\128\226\148\144'
+  - it switches to the alternate screen and back:
+      term = lvterm.new(3, 6)
+      term:write 'main\27[?1049h\27[2J\27[1;1Halt'
+      expect(term:text(0, 0, 3)).to_be 'alt'
+      term:write '\27[?1049l'
+      expect(term:text(0, 0, 4)).to_be 'main'
+
+- describe text:
+  - it reads part of a row:
+      term = lvterm.new(2, 10)
+      term:write 'abcdefghij'
+      expect(term:text(0, 2, 3)).to_be 'cde'
+  - it reads to the end of the row by default:
+      term = lvterm.new(2, 5)
+      term:write 'abcde'
+      expect(term:text(0, 3)).to_be 'de'
+  - it has a space for each empty cell:
+      term = lvterm.new(2, 5)
+      term:write 'a\27[1;4Hb'
+      expect(term:row(0)).to_be 'a  b '
+  - it is as wide as the columns that it was asked for:
+      term = lvterm.new(2, 5)
+      expect(#term:text(1, 1, 3)).to_be(3)
+  - it counts a wide character as the two columns that it takes:
+      term = lvterm.new(2, 6)
+      term:write '\228\184\173a'
+      expect(term:text(0, 0, 3)).to_be '\228\184\173a'
+      expect(term:text(0, 0, 2)).to_be '\228\184\173'
+  - it diagnoses a position outside the screen:
+      term = lvterm.new(2, 5)
+      expect(term:text(2, 0)).to_raise 'outside a screen of 2,5'
+      expect(term:text(0, 5)).to_raise 'outside a screen of 2,5'
+      expect(term:text(0, 3, 3)).to_raise 'outside a screen of 5 columns'
+
+- describe cell:
+  - it describes an empty cell:
+      term = lvterm.new(2, 5)
+      expect(term:cell(0, 0)).to_equal {
+         text = ' ', width = 1, bold = false, italic = false, blink = false,
+         reverse = false, conceal = false, strike = false, underline = 0,
+      }
+  - it describes a character:
+      term = lvterm.new(2, 5)
+      term:write 'x'
+      cell = term:cell(0, 0)
+      expect(cell.text).to_be 'x'
+      expect(cell.width).to_be(1)
+  - it has the attributes that were set:
+      term = lvterm.new(2, 8)
+      term:write '\27[1mb\27[3mi\27[4mu\27[5mk\27[7mr\27[8mc\27[9ms\27[0mn'
+      expect(term:cell(0, 0).bold).to_be(true)
+      expect(term:cell(0, 1).italic).to_be(true)
+      expect(term:cell(0, 2).underline).to_be(1)
+      expect(term:cell(0, 3).blink).to_be(true)
+      expect(term:cell(0, 4).reverse).to_be(true)
+      expect(term:cell(0, 5).conceal).to_be(true)
+      expect(term:cell(0, 6).strike).to_be(true)
+  - it has no attributes after they are reset:
+      term = lvterm.new(2, 8)
+      term:write '\27[1;3;4;5;7;8;9m\27[0mn'
+      expect(term:cell(0, 0)).to_equal {
+         text = 'n', width = 1, bold = false, italic = false, blink = false,
+         reverse = false, conceal = false, strike = false, underline = 0,
+      }
+  - it has no color by default, and a palette index when set:
+      term = lvterm.new(2, 5)
+      term:write 'a\27[31;44mb'
+      expect(term:cell(0, 0).fg).to_be(nil)
+      expect(term:cell(0, 0).bg).to_be(nil)
+      expect(term:cell(0, 1).fg).to_be(1)
+      expect(term:cell(0, 1).bg).to_be(4)
+  - it has an RGB color when set:
+      term = lvterm.new(2, 5)
+      term:write '\27[38;2;10;20;30mx'
+      expect(term:cell(0, 0).fg).to_equal {red = 10, green = 20, blue = 30}
+  - it spans two cells for a wide character:
+      term = lvterm.new(2, 5)
+      term:write '\228\184\173'
+      expect(term:cell(0, 0).text).to_be '\228\184\173'
+      expect(term:cell(0, 0).width).to_be(2)
+      expect(term:cell(0, 1).text).to_be ''
+  - it diagnoses a position outside the screen:
+      term = lvterm.new(2, 5)
+      expect(term:cell(2, 0)).to_raise 'outside a screen of 2,5'
+      expect(term:cell(0, -1)).to_raise 'outside a screen of 2,5'
+
+- describe resize:
+  - it changes the size of the terminal:
+      term = lvterm.new(2, 5)
+      expect(term:resize(4, 8)).to_be(term)
+      expect({term:size()}).to_equal {4, 8}
+      expect(#term:lines()).to_be(4)
+      expect(#term:row(0)).to_be(8)
+
+- describe reset:
+  - it clears the screen and moves the cursor home:
+      term = lvterm.new(2, 3)
+      term:write 'abc\r\ndef'
+      term:reset()
+      expect(term:lines()).to_equal {'   ', '   '}
+      expect({term:cursor()}).to_equal {0, 0}
+
+- describe output:
+  - it answers a request for the position of the cursor:
+      term = lvterm.new(5, 20)
+      term:write '\27[2;3H\27[6n'
+      expect(term:output()).to_be '\27[2;3R'
+  - it forgets what it has given out:
+      term = lvterm.new(5, 20)
+      term:write '\27[6n'
+      term:output()
+      expect(term:output()).to_be ''
+  - it has nothing to say unless it is asked:
+      term = lvterm.new(5, 20)
+      term:write 'hello'
+      expect(term:output()).to_be ''

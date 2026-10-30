@@ -1,0 +1,8 @@
+modules = {
+   ['lvterm'] = 'lib/lvterm/init.lua',
+   ['lvterm.*'] = 'lib',
+}
+
+runreport = true
+
+tick = true

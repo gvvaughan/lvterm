@@ -1,0 +1,12 @@
+*~
+*.o
+*.so
+*.html
+*.src.rock
+/ChangeLog
+/doc
+/build-aux/config.ld
+/lib/lvterm/config.lua
+/luacov.*.out
+/lvterm-*.tar.gz
+/TAGS

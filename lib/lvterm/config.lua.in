@@ -1,0 +1,16 @@
+--[[
+ Virtual terminal for Lua 5.1, 5.2, 5.3, 5.4 & 5.5
+ Copyright (C) 2026 Gary V. Vaughan
+]]
+--- What the build found out about this host.
+--
+-- Made from `config.lua.in` when LuaRocks builds the rock, with the
+-- directory that it found libvterm in.
+--
+-- @module lvterm.config
+
+return {
+   --- Where LuaJIT can load libvterm from.
+   -- @field library
+   library = '@VTERM_LIBDIR@/libvterm.@VTERM_SOEXT@',
+}

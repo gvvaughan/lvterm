@@ -1,0 +1,17 @@
+-- -*- lua -*-
+title = "@package@ @version@ Reference"
+project = "@package@ @version@"
+description = "Virtual terminal for Lua"
+
+dir = "../doc"
+file = {
+  "../lib/lvterm/init.lua",
+  "../lib/lvterm/ffi.lua",
+  "../lib/lvterm/config.lua.in",
+}
+
+boilerplate = true
+backtick_references = false
+format = "markdown"
+merge = true
+sort = true
