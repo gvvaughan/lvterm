@@ -10,7 +10,6 @@
 -- @module lvterm.ffi
 
 local ffi = require 'ffi'
-local bit = require 'bit'
 
 ffi.cdef [[
 typedef struct VTerm VTerm;
@@ -77,7 +76,6 @@ if ffi.sizeof 'VTermScreenCell' ~= 40 then
    error('unsupported libvterm: only 0.3 is supported', 0)
 end
 
-local DEFAULT_FG, DEFAULT_BG, INDEXED = 0x02, 0x04, 0x01
 local MAX_CHARS = 6
 
 
@@ -100,12 +98,13 @@ end
 
 
 -- A color as nil for the default, an index into the palette of 256, or a
--- table with `red`, `green` and `blue` fields.
+-- table with `red`, `green` and `blue` fields.  The `type` flags are, from
+-- the least significant: indexed, default foreground, default background.
 local function color(c)
-   local type = c.type
-   if bit.band(type, DEFAULT_FG + DEFAULT_BG) ~= 0 then
+   local flags = c.type
+   if math.floor(flags / 2) % 4 ~= 0 then
       return nil
-   elseif bit.band(type, INDEXED) ~= 0 then
+   elseif flags % 2 == 1 then
       return c.indexed.idx
    end
    return {red = c.rgb.red, green = c.rgb.green, blue = c.rgb.blue}
