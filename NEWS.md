@@ -2,6 +2,9 @@
 
 ## Noteworthy changes in release ?.? (????-??-??) [?]
 
+
+## Noteworthy changes in release 0.1 (2026-11-03) [stable]
+
 ### New Features
 
   - Initial release: a virtual terminal for testing programs that draw
