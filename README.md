@@ -22,7 +22,9 @@ term:cell(1, 7).bold  --> true
 term:cell(1, 7).fg    --> 1   (red, in the palette of 256 colors)
 ```
 
-Rows and columns are numbered from 0, like the arguments of curses.
+Rows and columns are numbered from 0, like the arguments of curses.  The
+[manual][docs] and the reference of each function are at
+<https://gvvaughan.github.io/lvterm>.
 
 The terminal is emulated by [libvterm][], which also does the work for
 Neovim.  [LuaJIT][] calls it directly through its FFI, and every other
@@ -76,6 +78,7 @@ There is no strict coding style, but please follow the existing code:
 delimiters for simple strings.
 
 
+[docs]:     https://gvvaughan.github.io/lvterm
 [issues]:   https://github.com/gvvaughan/lvterm/issues
 [libvterm]: https://www.leonerd.org.uk/code/libvterm/
 [lua]:      https://www.lua.org

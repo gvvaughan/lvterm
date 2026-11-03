@@ -3,9 +3,15 @@ title = "@package@ @version@ Reference"
 project = "@package@ @version@"
 description = "Virtual terminal for Lua"
 
-dir = "../doc"
+tparam_alias "string"
+tparam_alias "int"
+tparam_alias "bool"
+
+dir = "../doc/api"
 file = {
+  -- Modules
   "../lib/lvterm/init.lua",
+  "../lib/lvterm/terminal.lua",
   "../lib/lvterm/ffi.lua",
   "../lib/lvterm/config.lua.in",
 }
