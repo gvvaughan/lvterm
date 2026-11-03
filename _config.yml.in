@@ -1,0 +1,11 @@
+owner:   Gary V. Vaughan
+account: gvvaughan
+
+name:         Lvterm
+description:  Virtual terminal for Lua.
+forkme:       "https://github.com/gvvaughan/lvterm"
+release-no:   "@version@"
+
+url:      "https://gvvaughan.github.io/lvterm"
+markdown: kramdown
+pygments: true

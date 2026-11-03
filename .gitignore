@@ -1,0 +1,20 @@
+*~
+.*.swp
+.DS_Store
+/.jekyll-cache
+/.sass-cache
+/_site
+/Gemfile.lock
+
+# Build products left behind by master when switching branches.
+*.o
+*.so
+*.src.rock
+/ChangeLog
+/TAGS
+/build-aux
+/doc
+/ext
+/lib
+/luacov.*.out
+/lvterm-*.tar.gz
