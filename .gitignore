@@ -1,10 +1,8 @@
 *~
 *.o
 *.so
-*.html
 *.src.rock
 /ChangeLog
-/doc
 !/doc/lvterm.md
 /build-aux/config.ld
 /lib/lvterm/config.lua

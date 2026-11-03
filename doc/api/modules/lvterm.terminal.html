@@ -1,0 +1,449 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>lvterm 0.1 Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>lvterm 0.1</h1>
+
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Class_Terminal">Class Terminal </a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/lvterm.html">lvterm</a></li>
+  <li><a href="../modules/lvterm.ffi.html">lvterm.ffi</a></li>
+  <li><strong>lvterm.terminal</strong></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>lvterm.terminal</code></h1>
+<p>A virtual terminal, over the handle that a backend makes.</p>
+<p> A backend makes a handle, which has <code>write</code>, <code>resize</code>, <code>reset</code>, <code>cursor</code>,
+ <code>cell</code> and <code>output</code> methods, and nothing else, so that terminals made by
+ any backend behave the same.  The <code>Terminal</code> here checks positions, and
+ reads text, once, for all of them.</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#new">new (handle, rows, cols)</a></td>
+	<td class="summary">Make a terminal over a handle.</td>
+	</tr>
+</table>
+<h2><a href="#Class_Terminal">Class Terminal </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#Terminal:cell">Terminal:cell (row, col)</a></td>
+	<td class="summary">What one cell of the screen shows.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Terminal:cursor">Terminal:cursor ()</a></td>
+	<td class="summary">Where the cursor is.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Terminal:lines">Terminal:lines ()</a></td>
+	<td class="summary">Every row of the screen.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Terminal:output">Terminal:output ()</a></td>
+	<td class="summary">Take what the terminal has to send back to the program.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Terminal:reset">Terminal:reset ([hard=true])</a></td>
+	<td class="summary">Return the terminal to its initial state.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Terminal:resize">Terminal:resize (rows, cols)</a></td>
+	<td class="summary">Change the size of the terminal.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Terminal:row">Terminal:row (row)</a></td>
+	<td class="summary">A whole row of the screen.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Terminal:size">Terminal:size ()</a></td>
+	<td class="summary">The size of the terminal.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Terminal:text">Terminal:text (row[, col=0[, n]])</a></td>
+	<td class="summary">Some of the text on the screen, from one row.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Terminal:write">Terminal:write (bytes)</a></td>
+	<td class="summary">Feed bytes to the terminal, as a program writes them.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "new"></a>
+    <strong>new (handle, rows, cols)</strong>
+    </dt>
+    <dd>
+    Make a terminal over a handle.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">handle</span>
+         what a backend made, for the given size
+        </li>
+        <li><span class="parameter">rows</span>
+            <span class="types"><span class="type">int</span></span>
+         height in lines
+        </li>
+        <li><span class="parameter">cols</span>
+            <span class="types"><span class="type">int</span></span>
+         width in columns
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_Terminal"></a>Class Terminal </h2>
+
+          <div class="section-description">
+          A virtual terminal.
+ Rows and columns are numbered from 0, like the arguments of curses.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "Terminal:cell"></a>
+    <strong>Terminal:cell (row, col)</strong>
+    </dt>
+    <dd>
+    What one cell of the screen shows.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">row</span>
+            <span class="types"><span class="type">int</span></span>
+         line to read, from 0
+        </li>
+        <li><span class="parameter">col</span>
+            <span class="types"><span class="type">int</span></span>
+         column to read, from 0
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.7">table</a></span>
+         fields <code>text</code> (the characters, a space when the cell is
+   empty, and the empty string for the right half of a wide character),
+   <code>width</code> (columns, 1 or 2), <code>bold</code>, <code>italic</code>, <code>blink</code>, <code>reverse</code>,
+   <code>conceal</code> and <code>strike</code> (booleans), <code>underline</code> (0 for none, 1 single,
+   2 double, 3 curly), and <code>fg</code> and <code>bg</code>, each <code>nil</code> for the default, an
+   index into the 256 color palette, or a table of <code>red</code>, <code>green</code> and
+   <code>blue</code>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Terminal:cursor"></a>
+    <strong>Terminal:cursor ()</strong>
+    </dt>
+    <dd>
+    Where the cursor is.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">int</span></span>
+        row</li>
+        <li>
+           <span class="types"><span class="type">int</span></span>
+        column</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Terminal:lines"></a>
+    <strong>Terminal:lines ()</strong>
+    </dt>
+    <dd>
+    Every row of the screen.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">{string,...}</a></span>
+        the rows, from the top
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Terminal:output"></a>
+    <strong>Terminal:output ()</strong>
+    </dt>
+    <dd>
+    Take what the terminal has to send back to the program.
+ A terminal answers some of the sequences that it is given, such as a
+ request for the position of the cursor.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+        the bytes, which the terminal forgets
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Terminal:reset"></a>
+    <strong>Terminal:reset ([hard=true])</strong>
+    </dt>
+    <dd>
+    Return the terminal to its initial state.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">hard</span>
+            <span class="types"><span class="type">bool</span></span>
+         also forget the contents of the screen
+         (<em>default</em> true)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Terminal:resize"></a>
+    <strong>Terminal:resize (rows, cols)</strong>
+    </dt>
+    <dd>
+    Change the size of the terminal.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">rows</span>
+            <span class="types"><span class="type">int</span></span>
+         new height in lines
+        </li>
+        <li><span class="parameter">cols</span>
+            <span class="types"><span class="type">int</span></span>
+         new width in columns
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Terminal:row"></a>
+    <strong>Terminal:row (row)</strong>
+    </dt>
+    <dd>
+    A whole row of the screen.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">row</span>
+            <span class="types"><span class="type">int</span></span>
+         line to read, from 0
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+        the text, as wide as the screen
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Terminal:size"></a>
+    <strong>Terminal:size ()</strong>
+    </dt>
+    <dd>
+    The size of the terminal.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">int</span></span>
+        height in lines</li>
+        <li>
+           <span class="types"><span class="type">int</span></span>
+        width in columns</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Terminal:text"></a>
+    <strong>Terminal:text (row[, col=0[, n]])</strong>
+    </dt>
+    <dd>
+    Some of the text on the screen, from one row.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">row</span>
+            <span class="types"><span class="type">int</span></span>
+         line to read, from 0
+        </li>
+        <li><span class="parameter">col</span>
+            <span class="types"><span class="type">int</span></span>
+         first column to read, from 0
+         (<em>default</em> 0)
+        </li>
+        <li><span class="parameter">n</span>
+            <span class="types"><span class="type">int</span></span>
+         how many columns to read, to the end of the line by default
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+        the text, a space for each empty cell, and so exactly
+   as wide as the columns that it was asked for
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Terminal:write"></a>
+    <strong>Terminal:write (bytes)</strong>
+    </dt>
+    <dd>
+    Feed bytes to the terminal, as a program writes them.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">bytes</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+         what the terminal receives
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/lunarmodules/ldoc">LDoc 1.5.0</a></i>
+<i style="float:right;">Last updated 2026-11-03 11:09:07 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

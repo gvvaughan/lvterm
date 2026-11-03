@@ -1,7 +1,5 @@
 # lvterm NEWS - User visible changes
 
-## Noteworthy changes in release ?.? (????-??-??) [?]
-
 
 ## Noteworthy changes in release 0.1 (2026-11-03) [stable]
 
