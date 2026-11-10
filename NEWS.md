@@ -17,6 +17,13 @@
     `true` or `false`.  How the mouse is written to the program is up to
     the program, as libvterm has no call for it.
 
+  - `set_mode(name, value)` sets the modes that libvterm has no call for,
+    as the program would, by writing the sequence that it writes, so that a
+    test that stands in for a program does not have to: `'bracketed_paste'`
+    and `'application_cursor_keys'` take `true` or `false`, and
+    `'mouse_encoding'` takes `'x10'`, `'utf8'`, `'sgr'` or `'urxvt'` for how
+    the reports of the mouse are written.
+
   - `focus_in()`, `focus_out()` and `focus_reporting()` wrap
     `vterm_state_focus_in`, `vterm_state_focus_out` and the property that
     says whether the program asked to be told, so `output()` has the

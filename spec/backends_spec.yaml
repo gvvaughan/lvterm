@@ -86,3 +86,13 @@ specify the backends:
             term:set_termprop('focusreport', true)
          end)).to_equal {}
       end
+  - it the same, with the modes set by set_mode and not by the program:
+      if not both_backends then pending 'needs both backends' end
+      for _, encoding in ipairs {'x10', 'utf8', 'sgr', 'urxvt'} do
+         expect(input_differences('', function(term)
+            term:set_termprop('mouse', 'drag')
+            term:set_mode('mouse_encoding', encoding)
+            term:set_mode('bracketed_paste', true)
+            term:set_mode('application_cursor_keys', true)
+         end)).to_equal {}
+      end

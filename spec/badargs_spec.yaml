@@ -87,6 +87,10 @@ specify the arguments of:
   - context with bad arguments:
       badargs.diagnose('lvterm.terminal.set_termprop (table, string, ?any)', term.set_termprop)
 
+- describe set_mode:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.set_mode (table, string, ?any)', term.set_mode)
+
 - describe focus_reporting:
   - context with bad arguments:
       badargs.diagnose('lvterm.terminal.focus_reporting (table)', term.focus_reporting)

@@ -87,6 +87,14 @@ local MOUSE_MODES = {[0] = 'none', 'click', 'drag', 'move'}
 -- and the number that it has for it.
 local TERMPROPS = {mouse = 8, focusreport = 9}
 
+-- The modes that libvterm has no call for, so that they are set as a program sets them, by writing a
+-- sequence: the number that is in it, for each.
+local MODES = {bracketed_paste = 2004, application_cursor_keys = 1}
+
+-- The ways that the reports of the mouse are written, by the number that is in the sequence that asks for
+-- each of them, which is false for the old form that is used when none is asked for.
+local ENCODINGS = {x10 = false, utf8 = 1005, sgr = 1006, urxvt = 1015}
+
 
 
 --[[ ================= ]]--
@@ -349,6 +357,37 @@ local function set_termprop(self, name, value)
 end
 
 
+--- Set a mode that libvterm has no call for, as the program would, by writing the sequence that it writes.
+-- Unlike `set_termprop`, which wraps a call of libvterm, this is only for a test that stands in for the
+-- program not to write the sequences.
+-- @function set_mode
+-- @string name `bracketed_paste` or `application_cursor_keys`, with a value of true or false, or
+--   `mouse_encoding`, with a value of `x10`, `utf8`, `sgr` or `urxvt` for how the reports of the
+--   mouse are written, which is `x10` until it is set
+-- @param value the value of the mode
+-- @treturn Terminal the terminal
+local function set_mode(self, name, value)
+   if name == 'mouse_encoding' then
+      local code = ENCODINGS[value]
+      if code == nil then
+         error(format('unknown mouse encoding %s', tostring(value)), 2)
+      end
+      -- Each encoding replaces the one before it, as the last that was asked for is the one that is used.
+      self.handle:write('\27[?1005l\27[?1006l\27[?1015l' .. (code and format('\27[?%dh', code) or ''))
+   else
+      local code = type(name) == 'string' and MODES[name]
+      if not code then
+         error(format('unknown mode %s', tostring(name)), 2)
+      end
+      if type(value) ~= 'boolean' then
+         error(format('%s is not true or false', tostring(value)), 2)
+      end
+      self.handle:write(format('\27[?%d%s', code, value and 'h' or 'l'))
+   end
+   return self
+end
+
+
 --- Whether the program asked to be told when the terminal gains or loses the focus.
 -- A program asks with `ESC [ ? 1004 h`, or `set_termprop` can for it, and
 -- `focus_in` and `focus_out` send nothing until it has.
@@ -472,6 +511,7 @@ local Terminal = {
    paste = argscheck('lvterm.terminal.paste (table, string)', paste),
    mouse_mode = argscheck('lvterm.terminal.mouse_mode (table)', mouse_mode),
    set_termprop = argscheck('lvterm.terminal.set_termprop (table, string, ?any)', set_termprop),
+   set_mode = argscheck('lvterm.terminal.set_mode (table, string, ?any)', set_mode),
    focus_reporting = argscheck('lvterm.terminal.focus_reporting (table)', focus_reporting),
    focus_in = argscheck('lvterm.terminal.focus_in (table)', focus_in),
    focus_out = argscheck('lvterm.terminal.focus_out (table)', focus_out),

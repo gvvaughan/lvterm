@@ -816,6 +816,99 @@ specify lvterm:
       term = lvterm.new(2, 4)
       expect(term:set_termprop('mouse', 'click')).to_be(term)
 
+- describe set_mode:
+  - context with bracketed_paste:
+    - it makes paste send the marks around the text, when it is true:
+        term = lvterm.new(2, 4)
+        term:set_mode('bracketed_paste', true)
+        expect(pastes(term, 'hi')).to_be '\27[200~hi\27[201~'
+    - it makes paste send the text alone again, when it is false:
+        term = lvterm.new(2, 4)
+        term:set_mode('bracketed_paste', true)
+        term:set_mode('bracketed_paste', false)
+        expect(pastes(term, 'hi')).to_be 'hi'
+    - it has the same effect as the program asking for it:
+        by_call = lvterm.new(2, 4)
+        by_call:set_mode('bracketed_paste', true)
+        by_program = lvterm.new(2, 4)
+        by_program:write '\27[?2004h'
+        expect(pastes(by_call, 'text')).to_be(pastes(by_program, 'text'))
+  - context with application_cursor_keys:
+    - it makes the arrow keys send the application form, when it is true:
+        term = lvterm.new(2, 4)
+        term:set_mode('application_cursor_keys', true)
+        expect(keys(term, 'up')).to_be '\27OA'
+    - it makes the arrow keys send the normal form again, when it is false:
+        term = lvterm.new(2, 4)
+        term:set_mode('application_cursor_keys', true)
+        term:set_mode('application_cursor_keys', false)
+        expect(keys(term, 'up')).to_be '\27[A'
+    - it has the same effect as the program asking for it:
+        by_call = lvterm.new(2, 4)
+        by_call:set_mode('application_cursor_keys', true)
+        by_program = lvterm.new(2, 4)
+        by_program:write '\27[?1h'
+        expect(keys(by_call, 'left')).to_be(keys(by_program, 'left'))
+  - context with mouse_encoding:
+    - it makes the reports of the mouse use the SGR form, when it is sgr:
+        term = lvterm.new(5, 20)
+        term:set_termprop('mouse', 'click')
+        term:set_mode('mouse_encoding', 'sgr')
+        expect(clicks(term, 2, 3, 'left', true)).to_be '\27[<0;4;3M'
+    - it makes the reports of the mouse use the old form, when it is x10:
+        term = lvterm.new(5, 20)
+        term:set_termprop('mouse', 'click')
+        term:set_mode('mouse_encoding', 'x10')
+        expect(clicks(term, 2, 3, 'left', true)).to_be '\27[M $#'
+    - it makes the reports use the old form again, after sgr:
+        term = lvterm.new(5, 20)
+        term:set_termprop('mouse', 'click')
+        term:set_mode('mouse_encoding', 'sgr')
+        term:set_mode('mouse_encoding', 'x10')
+        expect(clicks(term, 2, 3, 'left', true)).to_be '\27[M $#'
+    - it makes the reports use the form that was asked for last:
+        term = lvterm.new(5, 20)
+        term:set_termprop('mouse', 'click')
+        term:set_mode('mouse_encoding', 'urxvt')
+        term:set_mode('mouse_encoding', 'sgr')
+        expect(clicks(term, 2, 3, 'left', true)).to_be '\27[<0;4;3M'
+    - it leaves alone what the program asked to hear of the mouse:
+        term = lvterm.new(5, 20)
+        for _, encoding in ipairs {'x10', 'utf8', 'sgr', 'urxvt'} do
+           term:set_mode('mouse_encoding', encoding)
+           expect(term:mouse_mode()).to_be 'none'
+        end
+        term:set_termprop('mouse', 'drag')
+        for _, encoding in ipairs {'x10', 'utf8', 'sgr', 'urxvt'} do
+           term:set_mode('mouse_encoding', encoding)
+           expect(term:mouse_mode()).to_be 'drag'
+        end
+    - it has the same effect as the program asking for each of the forms:
+        for name, code in pairs {utf8 = 1005, sgr = 1006, urxvt = 1015} do
+           by_call = lvterm.new(5, 200)
+           by_call:set_termprop('mouse', 'click')
+           by_call:set_mode('mouse_encoding', name)
+           by_program = lvterm.new(5, 200)
+           by_program:set_termprop('mouse', 'click')
+           by_program:write('\27[?' .. code .. 'h')
+           expect(clicks(by_call, 2, 150, 'left', true)).to_be(clicks(by_program, 2, 150, 'left', true))
+        end
+  - it diagnoses a mode that there is not:
+      term = lvterm.new(2, 4)
+      expect(term:set_mode('bracketed', true)).to_raise 'unknown mode'
+      expect(term:set_mode('mouse', true)).to_raise 'unknown mode'
+  - it diagnoses a value that is not true or false, for a mode that takes one:
+      term = lvterm.new(2, 4)
+      expect(term:set_mode('bracketed_paste', 'yes')).to_raise 'not true or false'
+      expect(term:set_mode('application_cursor_keys', nil)).to_raise 'not true or false'
+  - it diagnoses a mouse encoding that there is not:
+      term = lvterm.new(2, 4)
+      expect(term:set_mode('mouse_encoding', 'sgr1')).to_raise 'unknown mouse encoding'
+      expect(term:set_mode('mouse_encoding', true)).to_raise 'unknown mouse encoding'
+  - it returns the terminal, so calls can be chained:
+      term = lvterm.new(2, 4)
+      expect(term:set_mode('bracketed_paste', true)).to_be(term)
+
 - describe focus_reporting:
   - it is false to start with:
       term = lvterm.new(2, 4)
