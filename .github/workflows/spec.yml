@@ -12,6 +12,8 @@ jobs:
       fail-fast: false
       matrix:
         lua-version: ["5.5", "5.4", "5.3", "5.2", "5.1", "luajit"]
+        typecheck: ["typecheck", ""]
+        strict: ["std.strict", ""]
 
     runs-on: ubuntu-latest
 
@@ -47,6 +49,8 @@ jobs:
           # Until luke is released, install it from its development rockspec.
           luarocks install https://raw.githubusercontent.com/gvvaughan/luke/master/luke-dev-1.rockspec
           luarocks test --prepare
+          test -n "${{ matrix.typecheck }}" && luarocks install typecheck || true
+          test -n "${{ matrix.strict }}" && luarocks install std.strict || true
 
       - name: build
         run: |
@@ -57,6 +61,21 @@ jobs:
           # The rock doesn't build LDocs, but a release does, so find errors
           # in the doc comments now.  LDOC makes a missing ldoc an error.
           luke LDOC="ldoc --fatalwarnings"
+
+      - name: check optional modules
+        run: |
+          # Fail if a dependency installed a module this matrix cell omits.
+          eval "$(luarocks path)"
+          lua -e "
+            for name, want in pairs {
+               ['typecheck'] = '${{ matrix.typecheck }}' ~= '',
+               ['std.strict.init'] = '${{ matrix.strict }}' ~= '',
+            } do
+               local have = pcall(require, name)
+               print(name, have and 'installed' or 'not installed')
+               assert(have == want, name .. ' installation does not match matrix')
+            end
+          "
 
       - name: test
         run: |
