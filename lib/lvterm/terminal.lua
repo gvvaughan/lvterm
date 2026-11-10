@@ -249,10 +249,75 @@ function Terminal:paste(text)
 end
 
 
+-- The numbers that libvterm gives to the mouse buttons.
+local BUTTONS = {left = 1, middle = 2, right = 3, wheelup = 4, wheeldown = 5, wheelleft = 6, wheelright = 7}
+
+-- What the program can ask to be told about the mouse, by the number that libvterm has.
+local MOUSE_MODES = {[0] = 'none', 'click', 'drag', 'move'}
+
+
+--- What the program asked to be told about the mouse.
+-- It is turned on by the program with a sequence such as `ESC [ ? 1000 h`, and
+-- `mouse_move` and `mouse_button` send nothing until it is.
+-- @treturn string `none`, `click` for presses and releases, `drag` for those
+--   and moves while a button is down, or `move` for those and all moves
+function Terminal:mouse_mode()
+   return MOUSE_MODES[self.handle:mouse_mode()]
+end
+
+
+--- Move the mouse, as the terminal would tell the program.
+-- What is sent depends on what the program asked for with `mouse_mode`, and
+-- how it asked for it to be written, and is taken with `output`.
+-- @int row line that the mouse is over, from 0
+-- @int col column that the mouse is over, from 0
+-- @tparam[opt] table mods which modifiers are held, `shift`, `alt` and `ctrl`
+-- @treturn Terminal the terminal
+function Terminal:mouse_move(row, col, mods)
+   check(self, row, col)
+   self.handle:mouse_move(row, col, modifiers(mods))
+   return self
+end
+
+
+--- Press or release a mouse button, as the terminal would tell the program.
+-- The button is at the place that `mouse_move` last gave, and the program
+-- is told at once of a press or release if it asked for them.
+-- @string button `left`, `middle`, `right`, `wheelup`, `wheeldown`,
+--   `wheelleft` or `wheelright`
+-- @bool pressed true for a press, and false for a release, which a wheel does not have
+-- @tparam[opt] table mods which modifiers are held, `shift`, `alt` and `ctrl`
+-- @treturn Terminal the terminal
+function Terminal:mouse_button(button, pressed, mods)
+   local code = type(button) == 'string' and BUTTONS[button]
+   if not code then
+      error(string.format('unknown button %s', tostring(button)), 2)
+   end
+   self.handle:mouse_button(code, pressed and true or false, modifiers(mods))
+   return self
+end
+
+
+--- The title that the program set.
+-- It is set by the program with `ESC ] 0 ; title BEL` or `ESC ] 2 ; title BEL`,
+-- and is the last whole one, so one that is still being written is not it.
+-- @treturn string|nil the title, which is nil if the program has not set one
+function Terminal:title()
+   return self.handle:title()
+end
+
+
+--- Take how many times the program rang the bell.
+-- @treturn int the bells since the last call, which the terminal forgets
+function Terminal:bells()
+   return self.handle:bells()
+end
+
+
 --- Take what the terminal has to send back to the program.
 -- A terminal answers some of the sequences that it is given, such as a
--- request for the position of the cursor, and `key`, `char` and `paste` say
--- what the program is sent for what is typed.
+-- request for the position of the cursor, and `key`, `char`, `paste`, `mouse_move`
+-- and `mouse_button` events that the program is sent.
 -- @treturn string the bytes, which the terminal forgets
 function Terminal:output()
    return self.handle:output()

@@ -9,7 +9,9 @@ description = {
    detailed = [[
       Feed a virtual terminal the bytes that a program writes, and ask what
       the screen shows and where the cursor is, to test programs that draw
-      on a terminal.  Emulated by libvterm.
+      on a terminal, or to host them.  Keeps the scrollback, and determines
+      what is reported to the program for key, a paste and mouse events.
+      Emulated by libvterm.
    ]],
    homepage = 'https://github.com/gvvaughan/lvterm',
    license  = 'MIT/X11',

@@ -2,6 +2,17 @@
 
 ## Noteworthy changes in release ?.? (????-??-??) [?]
 
+### New Features
+
+  - `mouse_mode()` returns mouse events requested by the program:
+    `'none'`, `'click'`, `'drag'` or `'move'`.  `mouse_move(row, col, mods)`
+    and `mouse_button(button, pressed, mods)` put into `output()` what a
+    terminal sends for the mouse, in the form that the program asked for,
+    and nothing until it asks.
+
+  - `title()` is the title that the program set, or `nil`, and `bells()`
+    takes how many times it rang the bell since it was last asked.
+
 
 ## Noteworthy changes in release 0.1 (2026-11-03) [stable]
 

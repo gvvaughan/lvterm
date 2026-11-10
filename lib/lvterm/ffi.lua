@@ -5,10 +5,11 @@
 --- LuaJIT FFI backend: libvterm called directly, with nothing to compile.
 --
 -- Only what `lvterm` needs of libvterm 0.3 is declared: feed it bytes, then
--- look at the cells and the cursor, and ask it what a key sends.  Three of
--- its callbacks are used, to keep the lines that scroll off the top, to know
--- when the program switches screens or hides the cursor, and to take what the
--- terminal sends back, so that a handle has that to give out in order.
+-- look at the cells and the cursor, and ask it what a key or the mouse sends.
+-- Four of its callbacks are used, to keep the lines that scroll off the top,
+-- to know when the program switches screens, hides the cursor, asks for the
+-- mouse or sets the title, to count the bells, and to take what the terminal
+-- sends back, so that a handle has that to give out in order.
 --
 -- @module lvterm.ffi
 
@@ -51,14 +52,23 @@ typedef struct {
    VTermColor fg, bg;
 } VTermScreenCell;
 
-typedef union { int boolean; int number; char reserved[32]; } VTermValue;
+// LuaJIT has no bit-fields of size_t, so the three that libvterm packs into
+// the 32 bits after the pointer are made of one type that it has.
+typedef struct {
+   const char *str;
+   uint32_t    len : 30;
+   uint32_t    initial : 1;
+   uint32_t    final : 1;
+} VTermStringFragment;
+
+typedef union { int boolean; int number; VTermStringFragment string; char reserved[32]; } VTermValue;
 
 typedef struct {
    void *damage;
    void *moverect;
    void *movecursor;
    int (*settermprop)(int prop, VTermValue *val, void *user);
-   void *bell;
+   int (*bell)(void *user);
    void *resize;
    int (*sb_pushline)(int cols, const VTermScreenCell *cells, void *user);
    int (*sb_popline)(int cols, VTermScreenCell *cells, void *user);
@@ -79,6 +89,9 @@ void vterm_keyboard_unichar(VTerm *vt, uint32_t c, int mod);
 void vterm_keyboard_key(VTerm *vt, int key, int mod);
 void vterm_keyboard_start_paste(VTerm *vt);
 void vterm_keyboard_end_paste(VTerm *vt);
+
+void vterm_mouse_move(VTerm *vt, int row, int col, int mod);
+void vterm_mouse_button(VTerm *vt, int button, int pressed, int mod);
 
 VTermState *vterm_obtain_state(VTerm *vt);
 void vterm_state_get_cursorpos(const VTermState *state, VTermPos *cursorpos);
@@ -194,7 +207,7 @@ end
 
 
 -- The numbers that libvterm gives to the properties that a program sets.
-local PROP_CURSORVISIBLE, PROP_ALTSCREEN = 1, 3
+local PROP_CURSORVISIBLE, PROP_ALTSCREEN, PROP_TITLE, PROP_MOUSE = 1, 3, 4, 8
 
 
 -- The handles that callbacks are for, by the number that libvterm is given
@@ -262,7 +275,29 @@ local function property(prop, value, user)
       h.alt = value.boolean ~= 0
    elseif prop == PROP_CURSORVISIBLE then
       h.shown = value.boolean ~= 0
+   elseif prop == PROP_MOUSE then
+      h.mouse = value.number
+   elseif prop == PROP_TITLE then
+      -- A title may come in pieces, and is not the title until the last.
+      local frag = value.string
+      if frag.initial == 1 then
+         h.partial = {}
+      end
+      if h.partial then
+         h.partial[#h.partial + 1] = ffi.string(frag.str, frag.len)
+         if frag.final == 1 then
+            h.name = table.concat(h.partial)
+            h.partial = nil
+         end
+      end
    end
+   return 1
+end
+
+
+local function rang(user)
+   local h = handle_of(user)
+   h.rung = h.rung + 1
    return 1
 end
 
@@ -280,11 +315,13 @@ local pushed_cb = ffi.cast('int (*)(int, const VTermScreenCell *, void *)', push
 local popped_cb = ffi.cast('int (*)(int, VTermScreenCell *, void *)', popped)
 local forgotten_cb = ffi.cast('int (*)(void *)', forgotten)
 local property_cb = ffi.cast('int (*)(int, VTermValue *, void *)', property)
+local bell_cb = ffi.cast('int (*)(void *)', rang)
 local sent_cb = ffi.cast('VTermOutputCallback *', sent)
 callbacks.sb_pushline = pushed_cb
 callbacks.sb_popline = popped_cb
 callbacks.sb_clear = forgotten_cb
 callbacks.settermprop = property_cb
+callbacks.bell = bell_cb
 
 
 local Handle = {}
@@ -314,6 +351,8 @@ function M.new(rows, cols, options)
       out = {},
       alt = false,
       shown = true,
+      mouse = 0,
+      rung = 0,
    }, Handle)
    handles[serial] = self
 
@@ -349,6 +388,8 @@ end
 -- @bool hard also forget the contents of the screen
 function Handle:reset(hard)
    C.vterm_screen_reset(self.screen, hard and 1 or 0)
+   -- libvterm stops sending mouse mouse events after reset.
+   self.mouse = 0
 end
 
 
@@ -451,12 +492,55 @@ function Handle:cursor_visible()
 end
 
 
+--- Move the mouse.
+-- @int row line that it is over, from 0
+-- @int col column that it is over, from 0
+-- @int mods the modifiers that are held, as for `key`
+function Handle:mouse_move(row, col, mods)
+   C.vterm_mouse_move(self.vt, row, col, mods)
+end
+
+
+--- Press or release a mouse button, where the mouse last was.
+-- @int button 1 for the left, 2 the middle, 3 the right, 4 for the wheel
+--   up and 5 for the wheel down
+-- @bool pressed true to press, and false to release
+-- @int mods the modifiers that are held, as for `key`
+function Handle:mouse_button(button, pressed, mods)
+   C.vterm_mouse_button(self.vt, button, pressed and 1 or 0, mods)
+end
+
+
+--- What the program asked to be told about the mouse.
+-- @treturn int 0 for nothing, 1 for clicks, 2 for drags and 3 for all moves
+function Handle:mouse_mode()
+   return self.mouse
+end
+
+
+--- The title that the program set.
+-- @treturn string|nil the title, which is nil if none was set
+function Handle:title()
+   return self.name
+end
+
+
+--- Take how many times the program rang the bell.
+-- @treturn int the number of bells since the last call, which is forgotten
+function Handle:bells()
+   local n = self.rung
+   self.rung = 0
+   return n
+end
+
+
 -- LuaJIT only knows that a call to a C function calls back once it has seen
 -- it do so, and a callback in code that it compiled before then is fatal:
 -- "bad callback".  Output that does not scroll can make a loop hot, and the
 -- first line that scrolls then panics, so keep what calls libvterm, where
 -- a callback may be made, out of compiled code.
-for _, name in ipairs {'write', 'resize', 'reset', 'key', 'char', 'paste'} do
+for _, name in ipairs {'write', 'resize', 'reset', 'key', 'char', 'paste',
+                       'mouse_move', 'mouse_button'} do
    jit.off(Handle[name])
 end
 

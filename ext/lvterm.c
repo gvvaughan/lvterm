@@ -26,10 +26,11 @@
  The libvterm backend for hosts without a LuaJIT FFI.
 
  A thin binding of libvterm 0.3: feed a terminal bytes, then ask what its
- cells show and where its cursor is, and what a key sends.  Three of its
- callbacks are used, to keep the lines that scroll off the top, to know
- when the program switches screens or hides the cursor, and to take what
- the terminal sends back, so that a handle has that to give out in order.
+ cells show and where its cursor is, and what a key or the mouse sends.
+ Four of its callbacks are used, to keep the lines that scroll off the top,
+ to know when the program switches screens, hides the cursor, asks for the
+ mouse or sets the title, to count the bells, and to take what the terminal
+ sends back, so that a handle has that to give out in order.
  The `lvterm.Terminal` that `lvterm` makes is built over this, and over the
  FFI backend alike, so what a handle does is only what the two have in
  common.
@@ -77,6 +78,14 @@ typedef struct
 
 	int		alt;		/* on the alternate screen */
 	int		shown;		/* the cursor is shown */
+	int		mouse;		/* what the program asked of the mouse */
+	int		bells;		/* the bells since they were taken */
+
+	char		*title;		/* the title that the program set */
+	size_t		titlelen;
+	char		*partial;	/* the title that is still coming, if one is */
+	size_t		partiallen;
+	size_t		partialcap;
 
 	char		*out;		/* what the terminal sends back */
 	size_t		outlen;
@@ -314,6 +323,46 @@ sb_clear(void *user)
 }
 
 
+/* Add a piece of a title, which is the title when the last has come. */
+static void
+addtitle(Handle *h, VTermStringFragment frag)
+{
+	if (frag.initial)
+	{
+		free(h->partial);
+		h->partial = NULL;
+		h->partiallen = h->partialcap = 0;
+	}
+	else if (h->partial == NULL)
+		return;
+
+	if (h->partiallen + frag.len + 1 > h->partialcap)
+	{
+		size_t cap = h->partialcap ? h->partialcap : 64;
+		char *p;
+
+		while (cap < h->partiallen + frag.len + 1)
+			cap *= 2;
+		p = (char *) realloc(h->partial, cap);
+		if (p == NULL)
+			return;
+		h->partial = p;
+		h->partialcap = cap;
+	}
+	memcpy(h->partial + h->partiallen, frag.str, frag.len);
+	h->partiallen += frag.len;
+
+	if (frag.final)
+	{
+		free(h->title);
+		h->title = h->partial;
+		h->titlelen = h->partiallen;
+		h->partial = NULL;
+		h->partiallen = h->partialcap = 0;
+	}
+}
+
+
 static int
 settermprop(VTermProp prop, VTermValue *val, void *user)
 {
@@ -323,6 +372,18 @@ settermprop(VTermProp prop, VTermValue *val, void *user)
 		h->alt = val->boolean != 0;
 	else if (prop == VTERM_PROP_CURSORVISIBLE)
 		h->shown = val->boolean != 0;
+	else if (prop == VTERM_PROP_MOUSE)
+		h->mouse = val->number;
+	else if (prop == VTERM_PROP_TITLE)
+		addtitle(h, val->string);
+	return 1;
+}
+
+
+static int
+bell(void *user)
+{
+	((Handle *) user)->bells++;
 	return 1;
 }
 
@@ -341,7 +402,7 @@ static const VTermScreenCallbacks callbacks =
 	NULL,		/* moverect */
 	NULL,		/* movecursor */
 	settermprop,
-	NULL,		/* bell */
+	bell,
 	NULL,		/* resize */
 	sb_pushline,
 	sb_popline,
@@ -412,6 +473,10 @@ handle_gc(lua_State *L)
 		h->ring = NULL;
 		free(h->out);
 		h->out = NULL;
+		free(h->title);
+		h->title = NULL;
+		free(h->partial);
+		h->partial = NULL;
 	}
 	return 0;
 }
@@ -463,6 +528,8 @@ handle_reset(lua_State *L)
 	Handle *h = checkhandle(L);
 
 	vterm_screen_reset(h->screen, lua_toboolean(L, 2));
+	/* libvterm stops sending mouse mouse events after reset. */
+	h->mouse = 0;
 	return 0;
 }
 
@@ -679,6 +746,92 @@ handle_scrollback_clear(lua_State *L)
 
 
 /***
+Move the mouse.
+@function mouse_move
+@int row line that it is over, from 0
+@int col column that it is over, from 0
+@int mods the modifiers that are held, as for `key`
+*/
+static int
+handle_mouse_move(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+
+	vterm_mouse_move(h->vt, (int) luaL_checkinteger(L, 2),
+			 (int) luaL_checkinteger(L, 3),
+			 (VTermModifier) luaL_checkinteger(L, 4));
+	return 0;
+}
+
+
+/***
+Press or release a mouse button, where the mouse last was.
+@function mouse_button
+@int button 1 for the left, 2 the middle, 3 the right, 4 for the wheel
+  up and 5 for the wheel down
+@bool pressed true to press, and false to release
+@int mods the modifiers that are held, as for `key`
+*/
+static int
+handle_mouse_button(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+
+	vterm_mouse_button(h->vt, (int) luaL_checkinteger(L, 2),
+			   lua_toboolean(L, 3),
+			   (VTermModifier) luaL_checkinteger(L, 4));
+	return 0;
+}
+
+
+/***
+What the program asked to be told about the mouse.
+@function mouse_mode
+@treturn int 0 for nothing, 1 for clicks, 2 for drags and 3 for all moves
+*/
+static int
+handle_mouse_mode(lua_State *L)
+{
+	lua_pushinteger(L, checkhandle(L)->mouse);
+	return 1;
+}
+
+
+/***
+The title that the program set.
+@function title
+@treturn string|nil the title, which is nil if none was set
+*/
+static int
+handle_title(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+
+	if (h->title == NULL)
+		lua_pushnil(L);
+	else
+		lua_pushlstring(L, h->title, h->titlelen);
+	return 1;
+}
+
+
+/***
+Take how many times the program rang the bell.
+@function bells
+@treturn int the number of bells since the last call, which is forgotten
+*/
+static int
+handle_bells(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+
+	lua_pushinteger(L, h->bells);
+	h->bells = 0;
+	return 1;
+}
+
+
+/***
 Whether the program is on the alternate screen.
 @function altscreen
 @treturn bool
@@ -720,6 +873,11 @@ static const luaL_Reg handle_methods[] =
 	{"scrollback_clear",	handle_scrollback_clear},
 	{"altscreen",	handle_altscreen},
 	{"cursor_visible",	handle_cursor_visible},
+	{"mouse_move",	handle_mouse_move},
+	{"mouse_button",	handle_mouse_button},
+	{"mouse_mode",	handle_mouse_mode},
+	{"title",	handle_title},
+	{"bells",	handle_bells},
 	{NULL,		NULL}
 };
 

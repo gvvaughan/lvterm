@@ -48,6 +48,14 @@ before:
      return term:output()
   end
 
+  -- What the terminal sends for the mouse at a place, with a button pressed or released there.
+  function clicks(term, row, col, button, pressed, mods)
+     term:mouse_move(row, col, mods)
+     term:output()
+     term:mouse_button(button, pressed, mods)
+     return term:output()
+  end
+
 specify lvterm:
 - describe the backend:
   - it is one that exists:
@@ -377,6 +385,20 @@ specify lvterm:
       ]]
       expect(out).to_be('2\t' .. string.rep('x', 10) .. string.rep(' ', 30) .. '\ndone\n')
 
+  - it still tells the program of the mouse when the first move that does comes after many that did not:
+      out = fresh [[
+         local term = lvterm.new(5, 40)
+         for i = 1, 250 do
+            term:mouse_move(0, i % 40)
+            term:mouse_button('left', i % 2 == 0)
+         end
+         term:write '\27[?1000h\27[?1006h'
+         term:mouse_move(1, 2)
+         term:mouse_button('right', true)
+         print((term:output():gsub('\27', 'E')))
+      ]]
+      expect(out).to_be 'E[<2;3;2M\ndone\n'
+
 - describe altscreen:
   - it is not on to start with:
       term = lvterm.new(2, 4)
@@ -532,3 +554,201 @@ specify lvterm:
   - it sends nothing for no text:
       term = lvterm.new(2, 4)
       expect(pastes(term, '')).to_be ''
+
+- describe mouse_mode:
+  - it is none to start with:
+      term = lvterm.new(2, 4)
+      expect(term:mouse_mode()).to_be 'none'
+  - it follows what the program asks for:
+      term = lvterm.new(2, 4)
+      term:write '\27[?1000h'
+      expect(term:mouse_mode()).to_be 'click'
+      term:write '\27[?1002h'
+      expect(term:mouse_mode()).to_be 'drag'
+      term:write '\27[?1003h'
+      expect(term:mouse_mode()).to_be 'move'
+  - it goes back to none when the program asks for no more:
+      term = lvterm.new(2, 4)
+      term:write '\27[?1000h\27[?1000l'
+      expect(term:mouse_mode()).to_be 'none'
+  - it is none after a reset, when nothing is sent for the mouse any more:
+      term = lvterm.new(5, 20)
+      term:write '\27[?1003h\27[?1006h'
+      term:reset(true)
+      expect(term:mouse_mode()).to_be 'none'
+      expect(clicks(term, 1, 1, 'left', true)).to_be ''
+  - it is none after a soft reset too:
+      term = lvterm.new(5, 20)
+      term:write '\27[?1003h\27[?1006h'
+      term:reset(false)
+      expect(term:mouse_mode()).to_be 'none'
+      expect(clicks(term, 1, 1, 'left', true)).to_be ''
+
+- describe mouse_button:
+  - it sends nothing while the program has not asked for the mouse:
+      term = lvterm.new(5, 20)
+      expect(clicks(term, 2, 3, 'left', true)).to_be ''
+  - it sends a press as the program asked for it to be written:
+      term = lvterm.new(5, 20)
+      term:write '\27[?1000h\27[?1006h'
+      expect(clicks(term, 2, 3, 'left', true)).to_be '\27[<0;4;3M'
+  - it sends a release with a lower case final, as that mode writes it:
+      term = lvterm.new(5, 20)
+      term:write '\27[?1000h\27[?1006h'
+      clicks(term, 2, 3, 'left', true)
+      expect(clicks(term, 2, 3, 'left', false)).to_be '\27[<0;4;3m'
+  - it numbers the buttons:
+      term = lvterm.new(5, 20)
+      term:write '\27[?1000h\27[?1006h'
+      expect(clicks(term, 0, 0, 'middle', true)).to_be '\27[<1;1;1M'
+      expect(clicks(term, 0, 0, 'right', true)).to_be '\27[<2;1;1M'
+  - it sends the wheel as a press, which has no release:
+      term = lvterm.new(5, 20)
+      term:write '\27[?1000h\27[?1006h'
+      expect(clicks(term, 1, 1, 'wheelup', true)).to_be '\27[<64;2;2M'
+      expect(clicks(term, 1, 1, 'wheeldown', true)).to_be '\27[<65;2;2M'
+      expect(clicks(term, 1, 1, 'wheelleft', true)).to_be '\27[<66;2;2M'
+      expect(clicks(term, 1, 1, 'wheelright', true)).to_be '\27[<67;2;2M'
+  - it adds the modifiers that are held:
+      term = lvterm.new(5, 20)
+      term:write '\27[?1000h\27[?1006h'
+      expect(clicks(term, 0, 0, 'left', true, {shift = true})).to_be '\27[<4;1;1M'
+      term:mouse_button('left', false)
+      term:output()
+      expect(clicks(term, 0, 0, 'left', true, {alt = true})).to_be '\27[<8;1;1M'
+      term:mouse_button('left', false)
+      term:output()
+      expect(clicks(term, 0, 0, 'left', true, {ctrl = true})).to_be '\27[<16;1;1M'
+  - it sends the older encoding of a release when SGR was not asked for:
+      term = lvterm.new(5, 20)
+      term:write '\27[?1000h'
+      clicks(term, 2, 3, 'left', true)
+      expect(clicks(term, 2, 3, 'left', false)).to_be '\27[M#$#'
+  - it sends the older encoding of a press, which says where in a byte for each:
+      term = lvterm.new(5, 20)
+      term:write '\27[?1000h'
+      expect(clicks(term, 2, 3, 'left', true)).to_be '\27[M $#'
+  - it does not send a press again for a button that is down already:
+      term = lvterm.new(5, 20)
+      term:write '\27[?1000h\27[?1006h'
+      clicks(term, 2, 3, 'left', true)
+      expect(clicks(term, 2, 3, 'left', true)).to_be ''
+  - it diagnoses a button that there is not:
+      term = lvterm.new(5, 20)
+      expect(term:mouse_button('back', true)).to_raise 'unknown button'
+      expect(term:mouse_button(1, true)).to_raise 'unknown button'
+  - it returns the terminal, so calls can be chained:
+      term = lvterm.new(5, 20)
+      expect(term:mouse_button('left', true)).to_be(term)
+
+- describe mouse_move:
+  - it sends nothing when the program asked only for clicks:
+      term = lvterm.new(5, 20)
+      term:write '\27[?1000h\27[?1006h'
+      term:mouse_move(3, 4)
+      expect(term:output()).to_be ''
+  - it sends the move of a drag only while a button is down:
+      term = lvterm.new(5, 20)
+      term:write '\27[?1002h\27[?1006h'
+      term:mouse_move(1, 1)
+      expect(term:output()).to_be ''
+      clicks(term, 1, 1, 'left', true)
+      term:mouse_move(3, 5)
+      expect(term:output()).to_be '\27[<32;6;4M'
+  - it sends every move when the program asked for them:
+      term = lvterm.new(5, 20)
+      term:write '\27[?1003h\27[?1006h'
+      term:mouse_move(4, 5)
+      expect(term:output()).to_be '\27[<35;6;5M'
+  - it sends a move only when the place changed:
+      term = lvterm.new(5, 20)
+      term:write '\27[?1003h\27[?1006h'
+      term:mouse_move(4, 5)
+      term:output()
+      term:mouse_move(4, 5)
+      expect(term:output()).to_be ''
+  - it says where the mouse is for a press that follows:
+      term = lvterm.new(5, 20)
+      term:write '\27[?1000h\27[?1006h'
+      term:mouse_move(0, 19)
+      term:mouse_button('left', true)
+      expect(term:output()).to_be '\27[<0;20;1M'
+  - it diagnoses a place that is not on the screen:
+      term = lvterm.new(5, 20)
+      expect(term:mouse_move(5, 0)).to_raise 'outside a screen'
+      expect(term:mouse_move(0, 20)).to_raise 'outside a screen'
+      expect(term:mouse_move(-1, 0)).to_raise 'outside a screen'
+  - it returns the terminal, so calls can be chained:
+      term = lvterm.new(5, 20)
+      expect(term:mouse_move(0, 0)).to_be(term)
+
+- describe title:
+  - it is nil until the program sets one:
+      term = lvterm.new(2, 4)
+      expect(term:title()).to_be(nil)
+  - it is what the program set, ended either way:
+      term = lvterm.new(2, 4)
+      term:write '\27]2;one\7'
+      expect(term:title()).to_be 'one'
+      term:write '\27]2;two\27\\'
+      expect(term:title()).to_be 'two'
+  - it is set by the sequence that sets the name of the icon as well:
+      term = lvterm.new(2, 4)
+      term:write '\27]0;both\7'
+      expect(term:title()).to_be 'both'
+  - it is not set by the sequence that sets only the name of the icon:
+      term = lvterm.new(2, 4)
+      term:write '\27]1;icon\7'
+      expect(term:title()).to_be(nil)
+  - it is the last title that was whole, while one is still being written:
+      term = lvterm.new(2, 4)
+      term:write '\27]2;first\7\27]2;sec'
+      expect(term:title()).to_be 'first'
+      term:write 'ond\7'
+      expect(term:title()).to_be 'second'
+  - it is not changed by a title that the program cancelled, nor does that become part of the next:
+      term = lvterm.new(2, 4)
+      term:write '\27]2;first\7\27]2;abc'
+      term:write '\24'
+      expect(term:title()).to_be 'first'
+      term:write '\27]2;def\7'
+      expect(term:title()).to_be 'def'
+  - it is empty when the program set an empty title, which is not no title:
+      term = lvterm.new(2, 4)
+      term:write '\27]2;one\7\27]2;\7'
+      expect(term:title()).to_be ''
+  - it is as written for text that is not ASCII:
+      term = lvterm.new(2, 4)
+      term:write '\27]2;caf\195\169 \228\184\173\7'
+      expect(term:title()).to_be 'caf\195\169 \228\184\173'
+  - it is as long as written:
+      term = lvterm.new(2, 4)
+      title = string.rep('0123456789', 500)
+      term:write('\27]2;' .. title .. '\7')
+      expect(term:title()).to_be(title)
+  - it is not drawn on the screen:
+      term = lvterm.new(2, 8)
+      term:write 'a\27]2;title\7b'
+      expect(term:row(0)).to_be 'ab      '
+
+- describe bells:
+  - it is none to start with:
+      term = lvterm.new(2, 4)
+      expect(term:bells()).to_be(0)
+  - it counts the bells that were rung:
+      term = lvterm.new(2, 4)
+      term:write '\7a\7\7'
+      expect(term:bells()).to_be(3)
+  - it forgets them when it is asked:
+      term = lvterm.new(2, 4)
+      term:write '\7\7'
+      term:bells()
+      expect(term:bells()).to_be(0)
+  - it is not rung by the end of a title, which is also a bell:
+      term = lvterm.new(2, 4)
+      term:write '\27]2;title\7'
+      expect(term:bells()).to_be(0)
+  - it is not drawn on the screen:
+      term = lvterm.new(2, 4)
+      term:write 'a\7b'
+      expect(term:row(0)).to_be 'ab  '

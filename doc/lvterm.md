@@ -4,8 +4,8 @@ layout: default
 # LVTERM
 
 [Lvterm][] is a virtual terminal for [Lua][], to test programs that draw
-on a terminal.  Feed it the bytes that a program writes, and ask what the
-screen shows, and where the cursor is.
+on a terminal, or to host one.  Feed it the bytes that a program writes, and
+ask what the screen shows, and where the cursor is.
 
  * a screen to read, by cell, by run of text, by row, or all at once
    ([screens](#2-screens))
@@ -14,8 +14,11 @@ screen shows, and where the cursor is.
  * the replies that a real terminal sends back to the program, and what it
    sends for the keys that are typed to it, and for a paste
    ([replies and keys](#4-replies-and-keys))
+ * what the program asks of the mouse, and what is sent for it, and the title
+   that it sets and the bells that it rings
+   ([the mouse, the title and the bell](#5-the-mouse-the-title-and-the-bell))
  * emulation by [libvterm][], through the FFI of [LuaJIT][] or a thin C
-   binding for every Lua from 5.1 to 5.5 ([backends](#5-backends))
+   binding for every Lua from 5.1 to 5.5 ([backends](#6-backends))
 
 The [reference](api/) documents each function.
 
@@ -154,7 +157,44 @@ with `\27[?2004h`.  All of them return the terminal, and what they send is taken
 `term:output()`, in the order that it was made, along with the replies.
 
 
-## 5. Backends
+## 5. The mouse, the title and the bell
+
+A program requests reports for mouse events with a terminal escape sequence:
+`\27[?1000h` for clicks, `\27[?1002h` for moves while a button is down, and
+`\27[?1003h` for every move, and says how to write them, such as `\27[?1006h`.
+`term:mouse_mode()` is what it asked for, `'none'`, `'click'`, `'drag'` or
+`'move'`, and a reset sets it back to `'none'`.  What the program is told is
+taken with `term:output()`, as for a key, and is nothing until it asks:
+
+```lua
+term:write '\27[?1000h\27[?1006h'   -- the program asks for clicks, in the SGR form
+term:mouse_move(2, 3)                -- the mouse is over row 2 and column 3, from 0
+term:mouse_button('left', true)      -- a press, where the mouse is
+term:output()                        --> '\27[<0;4;3M'   (1-based, and `m` for the release)
+term:mouse_button('wheelup', true, {ctrl = true})
+```
+
+The buttons are `left`, `middle`, `right`, `wheelup`, `wheeldown`, `wheelleft` and
+`wheelright`, and the modifiers are as for a key.  A wheel has no release.
+A place that is not on the screen, and a button that is not one of those, are errors.
+libvterm keeps which buttons are down even when the program has not asked to be
+told, so a press of a button that is down already is not sent again.
+
+`term:title()` is the title that the program set, with `\27]0;title\7` or
+`\27]2;title\7`, or `nil` if it did not, and is only a title when all of it
+has been written, so that one that is half written is not it.  `term:bells()` is how
+many times the program rang the bell, `\7`, since it was last asked, and forgets them.
+
+| Method                                   | What it does                                          |
+|------------------------------------------|-------------------------------------------------------|
+| `term:mouse_mode()`                      | what the program asked to be told of the mouse        |
+| `term:mouse_move(row, col, mods)`        | moves the mouse, and returns the terminal             |
+| `term:mouse_button(button, pressed, mods)` | presses or releases a button, and returns the terminal |
+| `term:title()`                           | the title that the program set, or `nil`              |
+| `term:bells()`                           | how many bells there were since it was last asked     |
+
+
+## 6. Backends
 
 libvterm emulates the terminal, called directly through the FFI of LuaJIT
 where there is one (the `ffi` backend), and otherwise through a thin C

@@ -93,6 +93,15 @@ function differences(stream, rows, cols, more, resize)
    if a:cursor_visible() ~= b:cursor_visible() then
       diffs[#diffs + 1] = 'cursor_visible'
    end
+   if a:title() ~= b:title() then
+      diffs[#diffs + 1] = 'title'
+   end
+   if a:mouse_mode() ~= b:mouse_mode() then
+      diffs[#diffs + 1] = 'mouse_mode'
+   end
+   if a:bells() ~= b:bells() then
+      diffs[#diffs + 1] = 'bells'
+   end
 
    if a:scrollback_size() ~= b:scrollback_size() then
       diffs[#diffs + 1] = string.format('scrollback size %d against %d', a:scrollback_size(), b:scrollback_size())
@@ -162,6 +171,25 @@ function input_differences(stream)
          b:char(cp, mods)
          if a:output() ~= b:output() then
             diffs[#diffs + 1] = string.format('char %x %d', cp, mask)
+         end
+      end
+   end
+
+   for _, button in ipairs {'left', 'middle', 'right', 'wheelup', 'wheeldown', 'wheelleft', 'wheelright'} do
+      for mask = 0, 7 do
+         local mods = {shift = mask % 2 == 1, alt = math.floor(mask / 2) % 2 == 1,
+                       ctrl = math.floor(mask / 4) % 2 == 1}
+         for _, place in ipairs {{0, 0}, {2, 7}, {4, 19}} do
+            for _, pressed in ipairs {true, false} do
+               a:mouse_move(place[1], place[2], mods)
+               b:mouse_move(place[1], place[2], mods)
+               a:mouse_button(button, pressed, mods)
+               b:mouse_button(button, pressed, mods)
+               if a:output() ~= b:output() then
+                  diffs[#diffs + 1] = string.format('mouse %s %d %d,%d %s', button, mask,
+                                                    place[1], place[2], tostring(pressed))
+               end
+            end
          end
       end
    end

@@ -49,3 +49,29 @@ specify the backends:
   - it the same, with a paste that is bracketed:
       if not both_backends then pending 'needs both backends' end
       expect(input_differences '\27[?2004h').to_equal {}
+  - it the same, for the mouse that the program asked to be told of, as each mode and encoding writes it:
+      if not both_backends then pending 'needs both backends' end
+      for _, stream in ipairs {
+         '\27[?1000h', '\27[?1000h\27[?1006h', '\27[?1002h\27[?1006h',
+         '\27[?1003h\27[?1006h', '\27[?1003h\27[?1005h', '\27[?1003h\27[?1015h',
+      } do
+         expect(input_differences(stream)).to_equal {}
+      end
+
+- describe agree on what the program says of itself:
+  - it the title, and one that comes in pieces:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('a\27]0;one\7b\27]2;two\27\\c\27]2;thr', 2, 8, 'ee\7')).to_equal {}
+  - it a title that was cancelled, and the one that follows:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('\27]2;first\7\27]2;abc', 2, 8, '\24\27]2;def\7')).to_equal {}
+  - it a title of text that is not ASCII, and of none:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('\27]2;caf\195\169 \228\184\173\7\27]2;\7')).to_equal {}
+  - it the bells:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('\7a\7\27]2;t\7')).to_equal {}
+  - it what the mouse is asked for, and after a reset:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('\27[?1000h\27[?1002h')).to_equal {}
+      expect(differences('\27[?1003h\27[?1003l')).to_equal {}
