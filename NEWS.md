@@ -2,6 +2,9 @@
 
 ## Noteworthy changes in release ?.? (????-??-??) [?]
 
+
+## Noteworthy changes in release 0.2 (2026-11-10) [stable]
+
 ### New Features
 
   - lvterm can host a program as well as test one.  A terminal keeps
