@@ -7,39 +7,46 @@ Copyright (C) 2026 Gary V. Vaughan
 [![workflow status](https://github.com/gvvaughan/lvterm/actions/workflows/spec.yml/badge.svg?branch=master)](https://github.com/gvvaughan/lvterm/actions)
 [![codecov.io](https://codecov.io/github/gvvaughan/lvterm/coverage.svg?branch=master)](https://codecov.io/github/gvvaughan/lvterm?branch=master)
 
-A virtual terminal for [Lua][], to test programs that draw on a terminal.
-Feed it the bytes that a program writes, and ask what the screen shows, and
-where the cursor is:
+A virtual terminal for [Lua][]. It plays the part of a real terminal, so that
+you can test a program that draws on a terminal, or host one inside a program of
+your own, such as an editor with a window that runs a shell.
+
+Whatever the program prints goes in with `write`, and you read the screen
+that results. Whatever the terminal would send back to the program, such as a
+reply, a key, or a click of the mouse, comes out of `output`:
 
 ```lua
 local lvterm = require 'lvterm'
 local term = lvterm.new(24, 80)
 
-term:write '\27[2;3Hhello\27[1;31m!'
-term:text(1, 2, 5)    --> 'hello'
-term:cursor()         --> 1, 8
-term:cell(1, 7).bold  --> true
-term:cell(1, 7).fg    --> 1   (red, in the palette of 256 colors)
+term:write '\27[2;3Hhello\27[1;31m!'   -- the program draws
+term:text(1, 2, 5)                      --> 'hello'
+term:cursor()                           --> 1, 8
+term:cell(1, 7).bold                    --> true
+term:cell(1, 7).fg                      --> 1   (red, in the palette of 256 colors)
+term:key 'up'                           -- the user presses a key
+term:output()                           --> '\27[A', which goes to the program
 ```
 
-A terminal keeps the lines that scroll off the top, knows when the program is
-on the alternate screen or has hidden the cursor, documents what it sends for
-a key, a character, a paste, and the mouse, and knows the title that the
-program set and how often it rang the bell, so it can be used to host a
-program, and not only to test one.
+Rows and columns are numbered from 0, like the arguments of curses.
 
-Rows and columns are numbered from 0, like the arguments of curses.  The
-[manual][docs] and the reference of each function are at
+Besides the screen, a terminal keeps the lines that scroll off the top, and
+knows whether the program is on the alternate screen or has hidden the cursor.
+It says what to send the program for a key, a character, a paste, the mouse and
+a change of focus, as far as the program asked to hear about them. It also knows
+the title that the program set and how many times it rang the bell.
+
+The [manual][docs] and the reference for each function are at
 <https://gvvaughan.github.io/lvterm>.
 
-The terminal is emulated by [libvterm][], which also does the work for
-Neovim.  [LuaJIT][] calls it directly through its FFI, and every other
-Lua version through a thin C binding, so lvterm works on Lua 5.1 to 5.5
-and LuaJIT.  Both backends make terminals that behave the same, which the
-specs check by comparing one with the other.
+The terminal is emulated by [libvterm][], which also does the work for Neovim.
+[LuaJIT][] calls it directly through its FFI, and every other version of Lua
+calls it through a thin C binding, so lvterm works on Lua 5.1 to 5.5 and on
+LuaJIT. Both backends make terminals that behave the same, which the specs
+check by comparing one with the other.
 
-To test with a particular backend, set `LVTERM_BACKEND` to `ffi` or `core`:
-`lvterm` then uses that one, or fails, and never falls back to the other.
+To test with a particular backend, set `LVTERM_BACKEND` to `ffi` or `core`.
+Lvterm then uses that one, or fails, and never falls back to the other.
 
 
 Installation

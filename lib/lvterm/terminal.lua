@@ -257,8 +257,8 @@ local MOUSE_MODES = {[0] = 'none', 'click', 'drag', 'move'}
 
 
 --- What the program asked to be told about the mouse.
--- It is turned on by the program with a sequence such as `ESC [ ? 1000 h`, and
--- `mouse_move` and `mouse_button` send nothing until it is.
+-- A program asks with a sequence such as `ESC [ ? 1000 h`, and until it does,
+-- `mouse_move` and `mouse_button` send nothing.
 -- @treturn string `none`, `click` for presses and releases, `drag` for those
 --   and moves while a button is down, or `move` for those and all moves
 function Terminal:mouse_mode()
@@ -333,8 +333,8 @@ end
 
 
 --- Move the mouse, as the terminal would tell the program.
--- What is sent depends on what the program asked for with `mouse_mode`, and
--- how it asked for it to be written, and is taken with `output`.
+-- What is sent depends on what the program asked to hear, which `mouse_mode`
+-- says, and on how it asked for the reports to be written. Take it with `output`.
 -- @int row line that the mouse is over, from 0
 -- @int col column that the mouse is over, from 0
 -- @tparam[opt] table mods which modifiers are held, `shift`, `alt` and `ctrl`
@@ -347,8 +347,8 @@ end
 
 
 --- Press or release a mouse button, as the terminal would tell the program.
--- The button is at the place that `mouse_move` last gave, and the program
--- is told at once of a press or release if it asked for them.
+-- The press or release happens where `mouse_move` last put the mouse, and the
+-- program is told of it if it asked to hear about it.
 -- @string button `left`, `middle`, `right`, `wheelup`, `wheeldown`,
 --   `wheelleft` or `wheelright`
 -- @bool pressed true for a press, and false for a release, which a wheel does not have
@@ -365,8 +365,9 @@ end
 
 
 --- The title that the program set.
--- It is set by the program with `ESC ] 0 ; title BEL` or `ESC ] 2 ; title BEL`,
--- and is the last whole one, so one that is still being written is not it.
+-- A program sets the title with `ESC ] 0 ; title BEL` or `ESC ] 2 ; title BEL`.
+-- The title is the last complete one: a title that is still being written does
+-- not count yet.
 -- @treturn string|nil the title, which is nil if the program has not set one
 function Terminal:title()
    return self.handle:title()
