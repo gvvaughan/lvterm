@@ -3,7 +3,7 @@
 <html>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
 <head>
-    <title>lvterm 0.1 Reference</title>
+    <title>lvterm 0.2 Reference</title>
     <link rel="stylesheet" href="../ldoc.css" type="text/css" />
 </head>
 <body>
@@ -24,7 +24,7 @@
 
 <div id="navigation">
 <br/>
-<h1>lvterm 0.1</h1>
+<h1>lvterm 0.2</h1>
 
 
 <ul>
@@ -51,30 +51,70 @@
 
 <h1>Module <code>lvterm.ffi</code></h1>
 <p>LuaJIT FFI backend: libvterm called directly, with nothing to compile.</p>
-<p> Only the polling interface of libvterm 0.3 is declared, which is all that
- <code>lvterm</code> needs: feed it bytes, then look at the cells and the cursor.</p>
+<p> Only what <code>lvterm</code> needs of libvterm 0.3 is declared: feed it bytes, then
+ look at the cells and the cursor, and ask it what a key or the mouse sends.
+ Four of its callbacks are used, to keep the lines that scroll off the top,
+ to know when the program switches screens, hides the cursor, asks for the
+ mouse or sets the title, to count the bells, and to take what the terminal
+ sends back, so that a handle has that to give out in order.</p>
 
 
 <h2><a href="#Functions">Functions</a></h2>
 <table class="function_list">
 	<tr>
-	<td class="name" nowrap><a href="#new">new (rows, cols)</a></td>
+	<td class="name" nowrap><a href="#new">new (rows, cols[, options])</a></td>
 	<td class="summary">Make a handle for a new terminal.</td>
 	</tr>
 </table>
 <h2><a href="#Class_Handle">Class Handle </a></h2>
 <table class="function_list">
 	<tr>
+	<td class="name" nowrap><a href="#Handle:altscreen">Handle:altscreen ()</a></td>
+	<td class="summary">Whether the program is on the alternate screen.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Handle:bells">Handle:bells ()</a></td>
+	<td class="summary">Take how many times the program rang the bell.</td>
+	</tr>
+	<tr>
 	<td class="name" nowrap><a href="#Handle:cell">Handle:cell (row, col)</a></td>
 	<td class="summary">What one cell of the screen shows, which must be on it.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Handle:char">Handle:char (cp, mods)</a></td>
+	<td class="summary">Type a character.</td>
 	</tr>
 	<tr>
 	<td class="name" nowrap><a href="#Handle:cursor">Handle:cursor ()</a></td>
 	<td class="summary">Where the cursor is.</td>
 	</tr>
 	<tr>
+	<td class="name" nowrap><a href="#Handle:cursor_visible">Handle:cursor_visible ()</a></td>
+	<td class="summary">Whether the program has the cursor shown.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Handle:key">Handle:key (code, mods)</a></td>
+	<td class="summary">Press a key.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Handle:mouse_button">Handle:mouse_button (button, pressed, mods)</a></td>
+	<td class="summary">Press or release a mouse button, where the mouse last was.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Handle:mouse_mode">Handle:mouse_mode ()</a></td>
+	<td class="summary">What the program asked to be told about the mouse.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Handle:mouse_move">Handle:mouse_move (row, col, mods)</a></td>
+	<td class="summary">Move the mouse.</td>
+	</tr>
+	<tr>
 	<td class="name" nowrap><a href="#Handle:output">Handle:output ()</a></td>
 	<td class="summary">Take what the terminal has to send back to the program.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Handle:paste">Handle:paste (text)</a></td>
+	<td class="summary">Paste text, between the marks that the program asked for, if it did.</td>
 	</tr>
 	<tr>
 	<td class="name" nowrap><a href="#Handle:reset">Handle:reset (hard)</a></td>
@@ -83,6 +123,22 @@
 	<tr>
 	<td class="name" nowrap><a href="#Handle:resize">Handle:resize (rows, cols)</a></td>
 	<td class="summary">Change the size of the terminal.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Handle:scrollback_clear">Handle:scrollback_clear ()</a></td>
+	<td class="summary">Forget the lines that scrolled off the top.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Handle:scrollback_line">Handle:scrollback_line (n)</a></td>
+	<td class="summary">A line that scrolled off the top, which must be there.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Handle:scrollback_size">Handle:scrollback_size ()</a></td>
+	<td class="summary">How many lines have scrolled off the top.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Handle:title">Handle:title ()</a></td>
+	<td class="summary">The title that the program set.</td>
 	</tr>
 	<tr>
 	<td class="name" nowrap><a href="#Handle:write">Handle:write (bytes)</a></td>
@@ -99,7 +155,7 @@
     <dl class="function">
     <dt>
     <a name = "new"></a>
-    <strong>new (rows, cols)</strong>
+    <strong>new (rows, cols[, options])</strong>
     </dt>
     <dd>
     Make a handle for a new terminal.
@@ -114,6 +170,12 @@
         <li><span class="parameter">cols</span>
             <span class="types"><span class="type">int</span></span>
          width in columns
+        </li>
+        <li><span class="parameter">options</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.7">table</a></span>
+         <code>scrollback</code>, the most lines to keep, which is
+   all of them if it is not given
+         (<em>optional</em>)
         </li>
     </ul>
 
@@ -137,6 +199,48 @@
           What a backend's handle does, so the same as <code>lvterm.core</code>'s.
           </div>
     <dl class="function">
+    <dt>
+    <a name = "Handle:altscreen"></a>
+    <strong>Handle:altscreen ()</strong>
+    </dt>
+    <dd>
+    Whether the program is on the alternate screen.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Handle:bells"></a>
+    <strong>Handle:bells ()</strong>
+    </dt>
+    <dd>
+    Take how many times the program rang the bell.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">int</span></span>
+        the number of bells since the last call, which is forgotten
+    </ol>
+
+
+
+
+</dd>
     <dt>
     <a name = "Handle:cell"></a>
     <strong>Handle:cell (row, col)</strong>
@@ -169,6 +273,31 @@
 
 </dd>
     <dt>
+    <a name = "Handle:char"></a>
+    <strong>Handle:char (cp, mods)</strong>
+    </dt>
+    <dd>
+    Type a character.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">cp</span>
+            <span class="types"><span class="type">int</span></span>
+         the code point
+        </li>
+        <li><span class="parameter">mods</span>
+            <span class="types"><span class="type">int</span></span>
+         the modifiers that are held, as for <code>key</code>
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
     <a name = "Handle:cursor"></a>
     <strong>Handle:cursor ()</strong>
     </dt>
@@ -192,6 +321,132 @@
 
 </dd>
     <dt>
+    <a name = "Handle:cursor_visible"></a>
+    <strong>Handle:cursor_visible ()</strong>
+    </dt>
+    <dd>
+    Whether the program has the cursor shown.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Handle:key"></a>
+    <strong>Handle:key (code, mods)</strong>
+    </dt>
+    <dd>
+    Press a key.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">code</span>
+            <span class="types"><span class="type">int</span></span>
+         the number that libvterm has for the key
+        </li>
+        <li><span class="parameter">mods</span>
+            <span class="types"><span class="type">int</span></span>
+         the modifiers that are held, as bits: shift 1, alt 2, ctrl 4
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Handle:mouse_button"></a>
+    <strong>Handle:mouse_button (button, pressed, mods)</strong>
+    </dt>
+    <dd>
+    Press or release a mouse button, where the mouse last was.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">button</span>
+            <span class="types"><span class="type">int</span></span>
+         1 for the left, 2 the middle, 3 the right, 4 for the wheel
+   up and 5 for the wheel down
+        </li>
+        <li><span class="parameter">pressed</span>
+            <span class="types"><span class="type">bool</span></span>
+         true to press, and false to release
+        </li>
+        <li><span class="parameter">mods</span>
+            <span class="types"><span class="type">int</span></span>
+         the modifiers that are held, as for <code>key</code>
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Handle:mouse_mode"></a>
+    <strong>Handle:mouse_mode ()</strong>
+    </dt>
+    <dd>
+    What the program asked to be told about the mouse.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">int</span></span>
+        0 for nothing, 1 for clicks, 2 for drags and 3 for all moves
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Handle:mouse_move"></a>
+    <strong>Handle:mouse_move (row, col, mods)</strong>
+    </dt>
+    <dd>
+    Move the mouse.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">row</span>
+            <span class="types"><span class="type">int</span></span>
+         line that it is over, from 0
+        </li>
+        <li><span class="parameter">col</span>
+            <span class="types"><span class="type">int</span></span>
+         column that it is over, from 0
+        </li>
+        <li><span class="parameter">mods</span>
+            <span class="types"><span class="type">int</span></span>
+         the modifiers that are held, as for <code>key</code>
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
     <a name = "Handle:output"></a>
     <strong>Handle:output ()</strong>
     </dt>
@@ -206,6 +461,28 @@
            <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
         the bytes, which the terminal forgets
     </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Handle:paste"></a>
+    <strong>Handle:paste (text)</strong>
+    </dt>
+    <dd>
+    Paste text, between the marks that the program asked for, if it did.
+ libvterm only sends the marks, so the text is added between them.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">text</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+         the bytes pasted
+        </li>
+    </ul>
+
 
 
 
@@ -258,6 +535,87 @@
 
 </dd>
     <dt>
+    <a name = "Handle:scrollback_clear"></a>
+    <strong>Handle:scrollback_clear ()</strong>
+    </dt>
+    <dd>
+    Forget the lines that scrolled off the top.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Handle:scrollback_line"></a>
+    <strong>Handle:scrollback_line (n)</strong>
+    </dt>
+    <dd>
+    A line that scrolled off the top, which must be there.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">n</span>
+            <span class="types"><span class="type">int</span></span>
+         which, from 1 for the newest
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.7">{table,...}</a></span>
+        the cells of the line, as <code>cell</code> gives
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Handle:scrollback_size"></a>
+    <strong>Handle:scrollback_size ()</strong>
+    </dt>
+    <dd>
+    How many lines have scrolled off the top.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">int</span></span>
+        the lines in the scrollback
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Handle:title"></a>
+    <strong>Handle:title ()</strong>
+    </dt>
+    <dd>
+    The title that the program set.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a> or <span class="type">nil</span></span>
+        the title, which is nil if none was set
+    </ol>
+
+
+
+
+</dd>
+    <dt>
     <a name = "Handle:write"></a>
     <strong>Handle:write (bytes)</strong>
     </dt>
@@ -285,7 +643,7 @@
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/lunarmodules/ldoc">LDoc 1.5.0</a></i>
-<i style="float:right;">Last updated 2026-11-03 11:09:07 </i>
+<i style="float:right;">Last updated 2026-11-10 11:20:04 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>
