@@ -22,6 +22,11 @@ term:cell(1, 7).bold  --> true
 term:cell(1, 7).fg    --> 1   (red, in the palette of 256 colors)
 ```
 
+A terminal keeps the lines that scroll off the top, knows when the program is
+on the alternate screen or has hidden the cursor, and documents what it sends
+for a key, a character, and a paste, so it can be used to host a program, and
+not only to test one.
+
 Rows and columns are numbered from 0, like the arguments of curses.  The
 [manual][docs] and the reference of each function are at
 <https://gvvaughan.github.io/lvterm>.

@@ -9,10 +9,13 @@ screen shows, and where the cursor is.
 
  * a screen to read, by cell, by run of text, by row, or all at once
    ([screens](#2-screens))
- * the replies that a real terminal sends back to the program
-   ([replies](#3-replies))
+ * the lines that scroll off the top, and whether the program is on the
+   alternate screen or has hidden the cursor ([scrollback](#3-scrollback))
+ * the replies that a real terminal sends back to the program, and what it
+   sends for the keys that are typed to it, and for a paste
+   ([replies and keys](#4-replies-and-keys))
  * emulation by [libvterm][], through the FFI of [LuaJIT][] or a thin C
-   binding for every Lua from 5.1 to 5.5 ([backends](#4-backends))
+   binding for every Lua from 5.1 to 5.5 ([backends](#5-backends))
 
 The [reference](api/) documents each function.
 
@@ -73,7 +76,46 @@ for the default color, an index into the palette of 256 colors, or a table
 of `red`, `green` and `blue`.
 
 
-## 3. Replies
+## 3. Scrollback
+
+A terminal keeps the lines that scroll off the top of the main screen, as many of
+them as there is memory for, unless it was told how many to keep:
+
+```lua
+local term = lvterm.new(24, 80, {scrollback = 10000})
+
+term:scrollback_size()       --> how many lines have scrolled off
+term:scrollback_line(1)      --> the cells of the newest, as a list
+term:scrollback_line(1)[1].text
+```
+
+The newest line is number 1, and the oldest is `term:scrollback_size()`.  A line is a
+list of cells, one for each column that the screen had when the line scrolled
+off, of the kind that `term:cell` gives, with the colors and attributes that
+the cells had.  Trailing blank cells are not kept in memory, but are there when the line is
+read.  `scrollback = 0` keeps nothing.  A line that is not in the scrollback is an error.
+
+Lines scroll back only from the whole of the main screen: the alternate screen
+that full-screen programs switch to does not, and nor does a scroll of part of the screen.
+When a terminal is made smaller the lines that go are added to the scrollback, and when
+it is made larger the newest lines are taken from it again, cut or padded to the new
+width.  `term:scrollback_clear()` forgets the lines, as a program does with `\27[3J`.
+
+| Method                       | What it gives                                  |
+| ---------------------------- | ---------------------------------------------- |
+| `term:scrollback_size()`     | how many lines are in the scrollback           |
+| `term:scrollback_line(n)`    | the cells of the nth line, from the newest     |
+| `term:scrollback_clear()`    | forgets the lines, and returns the terminal    |
+| `term:altscreen()`           | whether the program is on the alternate screen |
+| `term:cursor_visible()`      | `false` after the program hid the cursor       |
+
+libvterm 0.3 switches to the alternate screen for `\27[?1047h` and `\27[?1049h`, but not
+for `\27[?47h`, and a reset leaves a terminal on the alternate screen if it was there.  A
+program such as a viewer for a terminal uses `term:altscreen()` to decide whether
+to show the scrollback.
+
+
+## 4. Replies and keys
 
 A terminal answers some of the sequences that it is given, such as a
 request for the position of the cursor.  `term:output()` takes the bytes
@@ -87,8 +129,32 @@ term:output()         --> '\27[2;9R'   (the 1-based row and column of the cursor
 To test a program that asks its terminal questions, write what the program
 sends to the terminal, and send what `term:output()` returns to the program.
 
+What the terminal sends for the keys that are typed to it is in the same bytes,
+which depend on the modes that the program has set, such as whether the cursor
+keys are for an application:
 
-## 4. Backends
+```lua
+term:key 'up'
+term:output()                   --> '\27[A'
+term:write '\27[?1h'            -- the program asks for application cursor keys
+term:key 'up'
+term:output()                   --> '\27OA'
+term:key('up', {ctrl = true})
+term:output()                   --> '\27[1;5A'
+term:char(0x4e2d)               -- a character, as UTF-8
+term:paste 'text'               -- the text, between the marks that the program asked for
+```
+
+The keys are `enter`, `tab`, `backspace`, `escape`, `up`, `down`, `left`, `right`, `insert`,
+`delete`, `home`, `end`, `pageup`, `pagedown` and `f1` to `f12`, and the modifiers
+are the fields `shift`, `alt` and `ctrl` of a table.  A key that is not one of those
+is an error.  `term:paste` sends the text as it is, which may be any bytes, and
+puts the marks of bracketed paste before and after it only if the program set that mode,
+with `\27[?2004h`.  All of them return the terminal, and what they send is taken with
+`term:output()`, in the order that it was made, along with the replies.
+
+
+## 5. Backends
 
 libvterm emulates the terminal, called directly through the FFI of LuaJIT
 where there is one (the `ffi` backend), and otherwise through a thin C
