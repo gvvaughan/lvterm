@@ -4,6 +4,12 @@
 
 ### New Features
 
+  - If typecheck is installed, lvterm checks the types of the arguments of
+    all of its functions, and says so in the usual way, as typecheck
+    does.  If std.strict is installed, the variables that lvterm's own modules
+    use must be declared.  Neither is needed, and neither changes anything
+    that lvterm does when it is used correctly.
+
   - `set_termprop(name, value)` wraps `vterm_state_set_termprop`, so that
     a test that stands in for a program can say what the program would
     have asked for without writing the escape sequences: `'mouse'` takes

@@ -66,6 +66,7 @@ build = {
       {['lvterm']          = 'lib/lvterm/init.lua'},
       {['lvterm.config']   = 'lib/lvterm/config.lua.in'},
       {['lvterm.core']     = 'ext/lvterm.c'},
+      {['lvterm._normalize'] = 'lib/lvterm/_normalize.lua'},
       {['lvterm.ffi']      = 'lib/lvterm/ffi.lua'},
       {['lvterm.terminal'] = 'lib/lvterm/terminal.lua'},
    },

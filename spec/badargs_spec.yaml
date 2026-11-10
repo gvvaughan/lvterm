@@ -1,0 +1,120 @@
+# The types of the arguments of every function, which typecheck checks, if it is installed.
+# What is not about the type of an argument, such as a position that is off the screen,
+# is checked, and specified, whether or not it is.
+
+before:
+  lvterm = require 'lvterm'
+  term = lvterm.new(5, 20)
+
+specify the arguments of:
+- describe lvterm.new:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.new (<?int>, <?int>, <?table>)', lvterm.new)
+
+- describe write:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.write (table, string)', term.write)
+
+- describe resize:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.resize (table, int, int)', term.resize)
+
+- describe reset:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.reset (table, <?boolean>)', term.reset)
+
+- describe size:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.size (table)', term.size)
+
+- describe cursor:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.cursor (table)', term.cursor)
+
+- describe cell:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.cell (table, int, int)', term.cell)
+
+- describe text:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.text (table, int, <?int>, <?int>)', term.text)
+
+- describe row:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.row (table, int)', term.row)
+
+- describe lines:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.lines (table)', term.lines)
+
+- describe scrollback_size:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.scrollback_size (table)', term.scrollback_size)
+
+- describe scrollback_line:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.scrollback_line (table, int)', term.scrollback_line)
+
+- describe scrollback_clear:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.scrollback_clear (table)', term.scrollback_clear)
+
+- describe altscreen:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.altscreen (table)', term.altscreen)
+
+- describe cursor_visible:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.cursor_visible (table)', term.cursor_visible)
+
+- describe key:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.key (table, string, <?table>)', term.key)
+
+- describe char:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.char (table, int, <?table>)', term.char)
+
+- describe paste:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.paste (table, string)', term.paste)
+
+- describe mouse_mode:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.mouse_mode (table)', term.mouse_mode)
+
+- describe set_termprop:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.set_termprop (table, string, ?any)', term.set_termprop)
+
+- describe focus_reporting:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.focus_reporting (table)', term.focus_reporting)
+
+- describe focus_in:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.focus_in (table)', term.focus_in)
+
+- describe focus_out:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.focus_out (table)', term.focus_out)
+
+- describe mouse_move:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.mouse_move (table, int, int, <?table>)', term.mouse_move)
+
+- describe mouse_button:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.mouse_button (table, string, ?boolean, <?table>)', term.mouse_button)
+
+- describe title:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.title (table)', term.title)
+
+- describe bells:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.bells (table)', term.bells)
+
+- describe output:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.output (table)', term.output)

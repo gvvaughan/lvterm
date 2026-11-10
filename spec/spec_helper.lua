@@ -16,6 +16,22 @@ do
 end
 
 
+-- Argument checks need typecheck, so skip their examples without it.  Specl
+-- gives the example environment to badargs.diagnose, so pass it on to the real
+-- diagnose, which defines its examples there.
+local have_typecheck = pcall(require, 'typecheck')
+badargs = require 'specl.badargs'
+
+local _diagnose = badargs.diagnose
+local function diagnose(...)
+   if have_typecheck then
+      setfenv(_diagnose, getfenv(diagnose))
+      return _diagnose(...)
+   end
+end
+badargs.diagnose = diagnose
+
+
 -- Both backends, where the host has them, to compare one with the other.
 local terminal = require 'lvterm.terminal'
 local have_ffi, ffi_backend = pcall(require, 'lvterm.ffi')

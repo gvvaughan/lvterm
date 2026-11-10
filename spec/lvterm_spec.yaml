@@ -310,7 +310,6 @@ specify lvterm:
       term:write 'a\r\nb\r\nc'
       expect(term:scrollback_line(0)).to_raise 'outside a scrollback of 1'
       expect(term:scrollback_line(2)).to_raise 'outside a scrollback of 1'
-      expect(term:scrollback_line(1.5)).to_raise 'outside a scrollback of 1'
   - it is forgotten by scrollback_clear:
       term = lvterm.new(2, 4)
       term:write 'a\r\nb\r\nc\r\nd'
@@ -511,7 +510,6 @@ specify lvterm:
       term = lvterm.new(2, 4)
       expect(term:key 'f13').to_raise 'unknown key'
       expect(term:key 'space').to_raise 'unknown key'
-      expect(term:key(nil)).to_raise 'unknown key'
   - it is the reply that output takes, in the order that they were made:
       term = lvterm.new(2, 4)
       term:key 'up'
@@ -543,7 +541,6 @@ specify lvterm:
       term = lvterm.new(2, 4)
       expect(term:char(-1)).to_raise 'not a character'
       expect(term:char(0x110000)).to_raise 'not a character'
-      expect(term:char('a')).to_raise 'not a character'
 
 - describe paste:
   - it sends the text as it is:
@@ -650,7 +647,6 @@ specify lvterm:
   - it diagnoses a button that there is not:
       term = lvterm.new(5, 20)
       expect(term:mouse_button('back', true)).to_raise 'unknown button'
-      expect(term:mouse_button(1, true)).to_raise 'unknown button'
   - it returns the terminal, so calls can be chained:
       term = lvterm.new(5, 20)
       expect(term:mouse_button('left', true)).to_be(term)
@@ -813,7 +809,6 @@ specify lvterm:
   - it diagnoses a property that is not supported, and a value that is not one of its values:
       term = lvterm.new(2, 4)
       expect(term:set_termprop('title', 'x')).to_raise 'unsupported property'
-      expect(term:set_termprop(8, 'click')).to_raise 'unsupported property'
       expect(term:set_termprop('mouse', 'everything')).to_raise 'unknown mouse mode'
       expect(term:set_termprop('mouse', true)).to_raise 'unknown mouse mode'
       expect(term:set_termprop('focusreport', 'yes')).to_raise 'not true or false'

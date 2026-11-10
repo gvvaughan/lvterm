@@ -2,20 +2,41 @@
  Virtual terminal for Lua 5.1, 5.2, 5.3, 5.4 & 5.5
  Copyright (C) 2026 Gary V. Vaughan
 ]]
---- LuaJIT FFI backend: libvterm called directly, with nothing to compile.
---
--- Only what `lvterm` needs of libvterm 0.3 is declared: feed it bytes, then
--- look at the cells and the cursor, and ask it what a key or the mouse sends.
--- Four of its callbacks are used, to keep the lines that scroll off the top,
--- to know when the program switches screens, hides the cursor, asks for the
--- mouse or sets the title, to count the bells, and to take what the terminal
--- sends back, so that a handle has that to give out in order.
---
--- @module lvterm.ffi
+--[[--
+ LuaJIT FFI backend: libvterm called directly, with nothing to compile.
 
-local bit = require 'bit'
+ Only what `lvterm` needs of libvterm 0.3 is declared: feed it bytes, then
+ look at the cells and the cursor, and ask it what a key or the mouse sends.
+ Four of its callbacks are used, to keep the lines that scroll off the top,
+ to know when the program switches screens, hides the cursor, asks for the
+ mouse or sets the title, to count the bells, and to take what the terminal
+ sends back, so that a handle has that to give out in order.
+
+ @module lvterm.ffi
+]]
+
+
+-- The functions that every cell goes through, and the callbacks that libvterm
+-- makes for every line, are not looked up in the environment, which is slower
+-- when it checks that a variable is declared.
+local band = require('bit').band
+local concat = table.concat
+local floor = math.floor
+local max = math.max
+local min = math.min
+local schar = string.char
+
 local ffi = require 'ffi'
 local jit = require 'jit'
+
+
+local _ENV = require 'lvterm._normalize'.strictness() {
+   error = error,
+   ipairs = ipairs,
+   require = require,
+   setmetatable = setmetatable,
+   tonumber = tonumber,
+}
 
 ffi.cdef [[
 typedef struct VTerm VTerm;
@@ -124,17 +145,17 @@ local MAX_CHARS = 6
 -- The UTF-8 encoding of the code point CP.
 local function utf8char(cp)
    if cp < 0x80 then
-      return string.char(cp)
+      return schar(cp)
    elseif cp < 0x800 then
-      return string.char(0xC0 + math.floor(cp / 0x40), 0x80 + cp % 0x40)
+      return schar(0xC0 + floor(cp / 0x40), 0x80 + cp % 0x40)
    elseif cp < 0x10000 then
-      return string.char(0xE0 + math.floor(cp / 0x1000),
-                         0x80 + math.floor(cp / 0x40) % 0x40,
+      return schar(0xE0 + floor(cp / 0x1000),
+                         0x80 + floor(cp / 0x40) % 0x40,
                          0x80 + cp % 0x40)
    end
-   return string.char(0xF0 + math.floor(cp / 0x40000),
-                      0x80 + math.floor(cp / 0x1000) % 0x40,
-                      0x80 + math.floor(cp / 0x40) % 0x40,
+   return schar(0xF0 + floor(cp / 0x40000),
+                      0x80 + floor(cp / 0x1000) % 0x40,
+                      0x80 + floor(cp / 0x40) % 0x40,
                       0x80 + cp % 0x40)
 end
 
@@ -144,7 +165,7 @@ end
 -- the least significant: indexed, default foreground, default background.
 local function color(c)
    local flags = c.type
-   if math.floor(flags / 2) % 4 ~= 0 then
+   if floor(flags / 2) % 4 ~= 0 then
       return nil
    elseif flags % 2 == 1 then
       return c.indexed.idx
@@ -165,7 +186,7 @@ local function convert(cell)
       end
    end
 
-   local text = table.concat(chars)
+   local text = concat(chars)
    if text == '' and cell.chars[0] == 0 then
       text = ' '
    end
@@ -202,7 +223,7 @@ local CELL = ffi.sizeof 'VTermScreenCell'
 local function blank(cell)
    local a = cell.attrs
    return cell.chars[0] == 0 and cell.width == 1
-      and bit.band(cell.fg.type, 2) ~= 0 and bit.band(cell.bg.type, 4) ~= 0
+      and band(cell.fg.type, 2) ~= 0 and band(cell.bg.type, 4) ~= 0
       and a.bold == 0 and a.underline == 0 and a.italic == 0 and a.blink == 0
       and a.reverse == 0 and a.conceal == 0 and a.strike == 0 and a.font == 0
       and a.dwl == 0 and a.dhl == 0 and a.small == 0 and a.baseline == 0
@@ -253,7 +274,7 @@ local function popped(cols, cells, user)
    h.lines[h.last] = nil
    h.last = h.last - 1
 
-   local kept = math.min(line.n, cols)
+   local kept = min(line.n, cols)
    ffi.copy(cells, line.bytes, kept * CELL)
    for i = kept, cols - 1 do
       cells[i] = BLANK
@@ -291,7 +312,7 @@ local function property(prop, value, user)
       if h.partial then
          h.partial[#h.partial + 1] = ffi.string(frag.str, frag.len)
          if frag.final == 1 then
-            h.name = table.concat(h.partial)
+            h.name = concat(h.partial)
             h.partial = nil
          end
       end
@@ -329,11 +350,8 @@ callbacks.settermprop = property_cb
 callbacks.bell = bell_cb
 
 
-local Handle = {}
-Handle.__index = Handle
-
-
-local M = {name = 'ffi'}
+-- The methods of a handle, made when all of them are defined.
+local Handle
 
 
 --- Make a handle for a new terminal.
@@ -342,7 +360,7 @@ local M = {name = 'ffi'}
 -- @tparam[opt] table options `scrollback`, the most lines to keep, which is
 --   all of them if it is not given
 -- @treturn Handle
-function M.new(rows, cols, options)
+local function new(rows, cols, options)
    local vt = ffi.gc(C.vterm_new(rows, cols), C.vterm_free)
    C.vterm_set_utf8(vt, 1)
 
@@ -375,24 +393,27 @@ end
 -- @type Handle
 
 --- Feed bytes to the terminal.
+-- @function write
 -- @string bytes what the terminal receives
-function Handle:write(bytes)
+local function write(self, bytes)
    C.vterm_input_write(self.vt, bytes, #bytes)
    C.vterm_screen_flush_damage(self.screen)
 end
 
 
 --- Change the size of the terminal.
+-- @function resize
 -- @int rows new height in lines
 -- @int cols new width in columns
-function Handle:resize(rows, cols)
+local function resize(self, rows, cols)
    C.vterm_set_size(self.vt, rows, cols)
 end
 
 
 --- Return the terminal to its initial state.
+-- @function reset
 -- @bool hard also forget the contents of the screen
-function Handle:reset(hard)
+local function reset(self, hard)
    C.vterm_screen_reset(self.screen, hard and 1 or 0)
    -- libvterm stops sending mouse events and focus reports after reset.
    self.mouse = 0
@@ -401,9 +422,10 @@ end
 
 
 --- Where the cursor is.
+-- @function cursor
 -- @treturn int row
 -- @treturn int column
-function Handle:cursor()
+local function cursor(self)
    local pos = ffi.new 'VTermPos'
    C.vterm_state_get_cursorpos(self.state, pos)
    return pos.row, pos.col
@@ -411,10 +433,11 @@ end
 
 
 --- What one cell of the screen shows, which must be on it.
+-- @function cell
 -- @int row line to read, from 0
 -- @int col column to read, from 0
 -- @treturn table the fields that `lvterm.terminal.Terminal:cell` documents
-function Handle:cell(row, col)
+local function cell(self, row, col)
    local pos = ffi.new('VTermPos', row, col)
    local cell = ffi.new 'VTermScreenCell'
    C.vterm_screen_get_cell(self.screen, pos, cell)
@@ -423,34 +446,38 @@ end
 
 
 --- Take what the terminal has to send back to the program.
+-- @function output
 -- @treturn string the bytes, which the terminal forgets
-function Handle:output()
-   local bytes = table.concat(self.out)
+local function output(self)
+   local bytes = concat(self.out)
    self.out = {}
    return bytes
 end
 
 
 --- Press a key.
+-- @function key
 -- @int code the number that libvterm has for the key
 -- @int mods the modifiers that are held, as bits: shift 1, alt 2, ctrl 4
-function Handle:key(code, mods)
+local function key(self, code, mods)
    C.vterm_keyboard_key(self.vt, code, mods)
 end
 
 
 --- Type a character.
+-- @function char
 -- @int cp the code point
 -- @int mods the modifiers that are held, as for `key`
-function Handle:char(cp, mods)
+local function char(self, cp, mods)
    C.vterm_keyboard_unichar(self.vt, cp, mods)
 end
 
 
 --- Paste text, between the marks that the program asked for, if it did.
 -- libvterm only sends the marks, so the text is added between them.
+-- @function paste
 -- @string text the bytes pasted
-function Handle:paste(text)
+local function paste(self, text)
    C.vterm_keyboard_start_paste(self.vt)
    self.out[#self.out + 1] = text
    C.vterm_keyboard_end_paste(self.vt)
@@ -458,18 +485,20 @@ end
 
 
 --- How many lines have scrolled off the top.
+-- @function scrollback_size
 -- @treturn int the lines in the scrollback
-function Handle:scrollback_size()
+local function scrollback_size(self)
    return self.last - self.first + 1
 end
 
 
 --- A line that scrolled off the top, which must be there.
+-- @function scrollback_line
 -- @int n which, from 1 for the newest
 -- @treturn {table,...} the cells of the line, as `cell` gives
-function Handle:scrollback_line(n)
+local function scrollback_line(self, n)
    local line = self.lines[self.last - n + 1]
-   local cells = ffi.new('VTermScreenCell[?]', math.max(line.n, 1))
+   local cells = ffi.new('VTermScreenCell[?]', max(line.n, 1))
    ffi.copy(cells, line.bytes, line.n * CELL)
    local out = {}
    for i = 0, line.cols - 1 do
@@ -480,48 +509,54 @@ end
 
 
 --- Forget the lines that scrolled off the top.
-function Handle:scrollback_clear()
+-- @function scrollback_clear
+local function scrollback_clear(self)
    self.lines, self.first, self.last = {}, 1, 0
 end
 
 
 --- Whether the program is on the alternate screen.
+-- @function altscreen
 -- @treturn bool
-function Handle:altscreen()
+local function altscreen(self)
    return self.alt
 end
 
 
 --- Whether the program has the cursor shown.
+-- @function cursor_visible
 -- @treturn bool
-function Handle:cursor_visible()
+local function cursor_visible(self)
    return self.shown
 end
 
 
 --- Move the mouse.
+-- @function mouse_move
 -- @int row line that it is over, from 0
 -- @int col column that it is over, from 0
 -- @int mods the modifiers that are held, as for `key`
-function Handle:mouse_move(row, col, mods)
+local function mouse_move(self, row, col, mods)
    C.vterm_mouse_move(self.vt, row, col, mods)
 end
 
 
 --- Press or release a mouse button, where the mouse last was.
+-- @function mouse_button
 -- @int button 1 for the left, 2 the middle, 3 the right, 4 for the wheel
 --   up and 5 for the wheel down
 -- @bool pressed true to press, and false to release
 -- @int mods the modifiers that are held, as for `key`
-function Handle:mouse_button(button, pressed, mods)
+local function mouse_button(self, button, pressed, mods)
    C.vterm_mouse_button(self.vt, button, pressed and 1 or 0, mods)
 end
 
 
 --- Set a property of the terminal, as the program would with a sequence.
+-- @function set_termprop
 -- @int prop the number that libvterm has for the property
 -- @int value the number or boolean that libvterm takes for it, as a number
-function Handle:set_termprop(prop, value)
+local function set_termprop(self, prop, value)
    local val = ffi.new 'VTermValue'
    val.number = value
    C.vterm_state_set_termprop(self.state, prop, val)
@@ -529,45 +564,79 @@ end
 
 
 --- Tell the program that the terminal gained the focus.
-function Handle:focus_in()
+-- @function focus_in
+local function focus_in(self)
    C.vterm_state_focus_in(self.state)
 end
 
 
 --- Tell the program that the terminal lost the focus.
-function Handle:focus_out()
+-- @function focus_out
+local function focus_out(self)
    C.vterm_state_focus_out(self.state)
 end
 
 
 --- Whether the program asked to be told when the terminal gains or loses the focus.
+-- @function focus_reporting
 -- @treturn bool
-function Handle:focus_reporting()
+local function focus_reporting(self)
    return self.focusing
 end
 
 
 --- What the program asked to be told about the mouse.
+-- @function mouse_mode
 -- @treturn int 0 for nothing, 1 for clicks, 2 for drags and 3 for all moves
-function Handle:mouse_mode()
+local function mouse_mode(self)
    return self.mouse
 end
 
 
 --- The title that the program set.
+-- @function title
 -- @treturn string|nil the title, which is nil if none was set
-function Handle:title()
+local function title(self)
    return self.name
 end
 
 
 --- Take how many times the program rang the bell.
+-- @function bells
 -- @treturn int the number of bells since the last call, which is forgotten
-function Handle:bells()
+local function bells(self)
    local n = self.rung
    self.rung = 0
    return n
 end
+
+
+Handle = {
+   write = write,
+   resize = resize,
+   reset = reset,
+   cursor = cursor,
+   cell = cell,
+   output = output,
+   key = key,
+   char = char,
+   paste = paste,
+   scrollback_size = scrollback_size,
+   scrollback_line = scrollback_line,
+   scrollback_clear = scrollback_clear,
+   altscreen = altscreen,
+   cursor_visible = cursor_visible,
+   mouse_move = mouse_move,
+   mouse_button = mouse_button,
+   set_termprop = set_termprop,
+   focus_in = focus_in,
+   focus_out = focus_out,
+   focus_reporting = focus_reporting,
+   mouse_mode = mouse_mode,
+   title = title,
+   bells = bells,
+}
+Handle.__index = Handle
 
 
 -- LuaJIT only knows that a call to a C function calls back once it has seen
@@ -581,4 +650,12 @@ for _, name in ipairs {'write', 'resize', 'reset', 'key', 'char', 'paste',
 end
 
 
-return M
+--- The name of the backend.
+-- @field name `'ffi'`
+
+
+--- @export
+return {
+   name = 'ffi',
+   new = new,
+}
