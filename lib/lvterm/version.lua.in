@@ -2,5 +2,37 @@
  Virtual terminal for Lua 5.1, 5.2, 5.3, 5.4 & 5.5
  Copyright (C) 2026 Gary V. Vaughan
 ]]
+--[[--
+ The version of lvterm, and what the build found out about this host.
 
-return 'Virtual Terminal / @version@'
+ Made from `version.lua.in` when LuaRocks builds the rock, with the version
+ of lvterm and the directory that it found libvterm in.
+
+ @module lvterm.version
+]]
+
+return {
+   --- The release number, or the stamp of a development build.
+   -- @field VERSION
+
+   VERSION = '@version@',
+
+   --- Where LuaJIT can load libvterm from.
+   -- @field LIBVTERM
+
+   LIBVTERM = '@VTERM_LIBDIR@/libvterm.@VTERM_SOEXT@',
+
+   --- What is said when the version is asked for.
+   -- @field versiontext
+
+   versiontext = [[
+lvterm (Virtual Terminal) @version@
+Written by Gary V. Vaughan <gary@gnu.org>, 2026
+
+Copyright (C) 2026, Gary V. Vaughan
+Lvterm comes with ABSOLUTELY NO WARRANTY.
+You may redistribute copies of Lvterm under the terms of the MIT license;
+it may be used for any purpose at absolutely no cost, without permission.
+See <https://mit-license.org> for details.
+]],
+}

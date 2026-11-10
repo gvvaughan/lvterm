@@ -31,7 +31,7 @@ build_dependencies = {
 }
 
 -- LuaRocks finds libvterm, and passes VTERM_DIR, VTERM_INCDIR and
--- VTERM_LIBDIR, which `lvterm.config` records for LuaJIT to load it from,
+-- VTERM_LIBDIR, which `lvterm.version` records for LuaJIT to load it from,
 -- and which the C backend compiles and links with.
 external_dependencies = {
    VTERM = {
@@ -64,7 +64,6 @@ build = {
 
    modules  = {
       {['lvterm']          = 'lib/lvterm/init.lua'},
-      {['lvterm.config']   = 'lib/lvterm/config.lua.in'},
       {['lvterm.core']     = 'ext/lvterm.c'},
       {['lvterm._normalize'] = 'lib/lvterm/_normalize.lua'},
       {['lvterm.ffi']      = 'lib/lvterm/ffi.lua'},

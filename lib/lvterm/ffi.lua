@@ -131,7 +131,7 @@ void   vterm_screen_convert_color_to_rgb(const VTermScreen *screen, VTermColor *
 
 
 -- The build found libvterm, and recorded where.
-local C = ffi.load(require('lvterm.config').library)
+local C = ffi.load(require('lvterm.version').LIBVTERM)
 
 -- The cells that libvterm 0.3 makes are 40 bytes, and the colors of the
 -- older ones are not the same, so don't read memory from another layout.

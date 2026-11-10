@@ -4,8 +4,10 @@
 
 ### New Features
 
-  - `lvterm.version` says which version of lvterm this is, as the other
-    libraries' `version` does, and is loaded when it is first asked for.
+  - `lvterm.version` is a table, as the version of luke and smush is:
+    `VERSION` says which version of lvterm this is, `versiontext` is what
+    to say when it is asked for, and `LIBVTERM` is where the build found
+    libvterm, for LuaJIT to load.  It is loaded when it is first asked for.
 
   - If typecheck is installed, lvterm checks the types of the arguments of
     all of its functions, and says so in the usual way, as typecheck

@@ -29,7 +29,6 @@ return {
       'lib/lvterm/init$',
       'lib/lvterm/terminal$',
       'lib/lvterm/ffi$',
-      'lib/lvterm/config$',
       'lib/lvterm/version$',
    },
 

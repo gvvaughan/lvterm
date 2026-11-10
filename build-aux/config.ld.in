@@ -13,7 +13,7 @@ file = {
   "../lib/lvterm/init.lua",
   "../lib/lvterm/terminal.lua",
   "../lib/lvterm/ffi.lua",
-  "../lib/lvterm/config.lua.in",
+  "../lib/lvterm/version.lua.in",
 }
 
 boilerplate = true

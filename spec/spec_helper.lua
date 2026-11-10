@@ -6,7 +6,7 @@
 do
    local std = require 'specl.std'
 
-   -- Run the Lua modules from this tree, for coverage, and `lvterm.config`
+   -- Run the Lua modules from this tree, for coverage, and `lvterm.core`
    -- from the rock that `luarocks make` installed.
    package.path = std.package.normalize(
       './lib/?.lua',
