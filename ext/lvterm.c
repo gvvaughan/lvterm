@@ -79,6 +79,7 @@ typedef struct
 	int		alt;		/* on the alternate screen */
 	int		shown;		/* the cursor is shown */
 	int		mouse;		/* what the program asked of the mouse */
+	int		focusing;	/* the program asked for the focus */
 	int		bells;		/* the bells since they were taken */
 
 	char		*title;		/* the title that the program set */
@@ -374,6 +375,8 @@ settermprop(VTermProp prop, VTermValue *val, void *user)
 		h->shown = val->boolean != 0;
 	else if (prop == VTERM_PROP_MOUSE)
 		h->mouse = val->number;
+	else if (prop == VTERM_PROP_FOCUSREPORT)
+		h->focusing = val->boolean != 0;
 	else if (prop == VTERM_PROP_TITLE)
 		addtitle(h, val->string);
 	return 1;
@@ -528,8 +531,9 @@ handle_reset(lua_State *L)
 	Handle *h = checkhandle(L);
 
 	vterm_screen_reset(h->screen, lua_toboolean(L, 2));
-	/* libvterm stops sending mouse mouse events after reset. */
+	/* libvterm stops sending mouse events and focus reports after reset. */
 	h->mouse = 0;
+	h->focusing = 0;
 	return 0;
 }
 
@@ -785,6 +789,62 @@ handle_mouse_button(lua_State *L)
 
 
 /***
+Set a property of the terminal, as the program would with a sequence.
+@function set_termprop
+@int prop the number that libvterm has for the property
+@int value the number or boolean that libvterm takes for it, as a number
+*/
+static int
+handle_set_termprop(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+	VTermValue val;
+
+	memset(&val, 0, sizeof (val));
+	val.number = (int) luaL_checkinteger(L, 3);
+	vterm_state_set_termprop(h->state, (VTermProp) luaL_checkinteger(L, 2), &val);
+	return 0;
+}
+
+
+/***
+Tell the program that the terminal gained the focus.
+@function focus_in
+*/
+static int
+handle_focus_in(lua_State *L)
+{
+	vterm_state_focus_in(checkhandle(L)->state);
+	return 0;
+}
+
+
+/***
+Tell the program that the terminal lost the focus.
+@function focus_out
+*/
+static int
+handle_focus_out(lua_State *L)
+{
+	vterm_state_focus_out(checkhandle(L)->state);
+	return 0;
+}
+
+
+/***
+Whether the program asked to be told when the terminal gains or loses the focus.
+@function focus_reporting
+@treturn bool
+*/
+static int
+handle_focus_reporting(lua_State *L)
+{
+	lua_pushboolean(L, checkhandle(L)->focusing);
+	return 1;
+}
+
+
+/***
 What the program asked to be told about the mouse.
 @function mouse_mode
 @treturn int 0 for nothing, 1 for clicks, 2 for drags and 3 for all moves
@@ -876,6 +936,10 @@ static const luaL_Reg handle_methods[] =
 	{"mouse_move",	handle_mouse_move},
 	{"mouse_button",	handle_mouse_button},
 	{"mouse_mode",	handle_mouse_mode},
+	{"set_termprop",	handle_set_termprop},
+	{"focus_in",	handle_focus_in},
+	{"focus_out",	handle_focus_out},
+	{"focus_reporting",	handle_focus_reporting},
 	{"title",	handle_title},
 	{"bells",	handle_bells},
 	{NULL,		NULL}

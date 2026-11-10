@@ -94,6 +94,9 @@ void vterm_mouse_move(VTerm *vt, int row, int col, int mod);
 void vterm_mouse_button(VTerm *vt, int button, int pressed, int mod);
 
 VTermState *vterm_obtain_state(VTerm *vt);
+int  vterm_state_set_termprop(VTermState *state, int prop, VTermValue *val);
+void vterm_state_focus_in(VTermState *state);
+void vterm_state_focus_out(VTermState *state);
 void vterm_state_get_cursorpos(const VTermState *state, VTermPos *cursorpos);
 
 VTermScreen *vterm_obtain_screen(VTerm *vt);
@@ -207,7 +210,7 @@ end
 
 
 -- The numbers that libvterm gives to the properties that a program sets.
-local PROP_CURSORVISIBLE, PROP_ALTSCREEN, PROP_TITLE, PROP_MOUSE = 1, 3, 4, 8
+local PROP_CURSORVISIBLE, PROP_ALTSCREEN, PROP_TITLE, PROP_MOUSE, PROP_FOCUSREPORT = 1, 3, 4, 8, 9
 
 
 -- The handles that callbacks are for, by the number that libvterm is given
@@ -277,6 +280,8 @@ local function property(prop, value, user)
       h.shown = value.boolean ~= 0
    elseif prop == PROP_MOUSE then
       h.mouse = value.number
+   elseif prop == PROP_FOCUSREPORT then
+      h.focusing = value.boolean ~= 0
    elseif prop == PROP_TITLE then
       -- A title may come in pieces, and is not the title until the last.
       local frag = value.string
@@ -352,6 +357,7 @@ function M.new(rows, cols, options)
       alt = false,
       shown = true,
       mouse = 0,
+      focusing = false,
       rung = 0,
    }, Handle)
    handles[serial] = self
@@ -388,8 +394,9 @@ end
 -- @bool hard also forget the contents of the screen
 function Handle:reset(hard)
    C.vterm_screen_reset(self.screen, hard and 1 or 0)
-   -- libvterm stops sending mouse mouse events after reset.
+   -- libvterm stops sending mouse events and focus reports after reset.
    self.mouse = 0
+   self.focusing = false
 end
 
 
@@ -511,6 +518,35 @@ function Handle:mouse_button(button, pressed, mods)
 end
 
 
+--- Set a property of the terminal, as the program would with a sequence.
+-- @int prop the number that libvterm has for the property
+-- @int value the number or boolean that libvterm takes for it, as a number
+function Handle:set_termprop(prop, value)
+   local val = ffi.new 'VTermValue'
+   val.number = value
+   C.vterm_state_set_termprop(self.state, prop, val)
+end
+
+
+--- Tell the program that the terminal gained the focus.
+function Handle:focus_in()
+   C.vterm_state_focus_in(self.state)
+end
+
+
+--- Tell the program that the terminal lost the focus.
+function Handle:focus_out()
+   C.vterm_state_focus_out(self.state)
+end
+
+
+--- Whether the program asked to be told when the terminal gains or loses the focus.
+-- @treturn bool
+function Handle:focus_reporting()
+   return self.focusing
+end
+
+
 --- What the program asked to be told about the mouse.
 -- @treturn int 0 for nothing, 1 for clicks, 2 for drags and 3 for all moves
 function Handle:mouse_mode()
@@ -540,7 +576,7 @@ end
 -- first line that scrolls then panics, so keep what calls libvterm, where
 -- a callback may be made, out of compiled code.
 for _, name in ipairs {'write', 'resize', 'reset', 'key', 'char', 'paste',
-                       'mouse_move', 'mouse_button'} do
+                       'mouse_move', 'mouse_button', 'focus_in', 'focus_out'} do
    jit.off(Handle[name])
 end
 

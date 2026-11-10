@@ -266,6 +266,72 @@ function Terminal:mouse_mode()
 end
 
 
+-- The properties that `set_termprop` sets, by the name that libvterm has for each without `VTERM_PROP_`,
+-- and the number that it has for it.
+local TERMPROPS = {mouse = 8, focusreport = 9}
+
+
+--- Set a property of the terminal, as `vterm_state_set_termprop` does.
+-- A program sets properties with the sequences that it writes, and this sets them
+-- as the program would have, which saves a test that stands in for the program from writing them.
+-- Only the properties for what the program is told are supported so far.
+-- @string name `mouse`, with a value of `none`, `click`, `drag` or `move`, as `mouse_mode`
+--   gives, or `focusreport`, with a value of true or false
+-- @param value the value of the property
+-- @treturn Terminal the terminal
+function Terminal:set_termprop(name, value)
+   local prop = type(name) == 'string' and TERMPROPS[name]
+   if not prop then
+      error(string.format('unsupported property %s', tostring(name)), 2)
+   end
+   local number
+   if name == 'mouse' then
+      for n, mode in pairs(MOUSE_MODES) do
+         if mode == value then
+            number = n
+         end
+      end
+      if not number then
+         error(string.format('unknown mouse mode %s', tostring(value)), 2)
+      end
+   else
+      if type(value) ~= 'boolean' then
+         error(string.format('%s is not true or false', tostring(value)), 2)
+      end
+      number = value and 1 or 0
+   end
+   self.handle:set_termprop(prop, number)
+   return self
+end
+
+
+--- Whether the program asked to be told when the terminal gains or loses the focus.
+-- A program asks with `ESC [ ? 1004 h`, or `set_termprop` can for it, and
+-- `focus_in` and `focus_out` send nothing until it has.
+-- @treturn bool
+function Terminal:focus_reporting()
+   return self.handle:focus_reporting()
+end
+
+
+--- Tell the program that the terminal gained the focus, if it asked to be told.
+-- What is sent is taken with `output`.
+-- @treturn Terminal the terminal
+function Terminal:focus_in()
+   self.handle:focus_in()
+   return self
+end
+
+
+--- Tell the program that the terminal lost the focus, if it asked to be told.
+-- What is sent is taken with `output`.
+-- @treturn Terminal the terminal
+function Terminal:focus_out()
+   self.handle:focus_out()
+   return self
+end
+
+
 --- Move the mouse, as the terminal would tell the program.
 -- What is sent depends on what the program asked for with `mouse_mode`, and
 -- how it asked for it to be written, and is taken with `output`.

@@ -75,3 +75,14 @@ specify the backends:
       if not both_backends then pending 'needs both backends' end
       expect(differences('\27[?1000h\27[?1002h')).to_equal {}
       expect(differences('\27[?1003h\27[?1003l')).to_equal {}
+  - it the same, for what the focus reports when the program asked for them:
+      if not both_backends then pending 'needs both backends' end
+      expect(input_differences '\27[?1004h').to_equal {}
+  - it the same, with the properties set by set_termprop and not by the program:
+      if not both_backends then pending 'needs both backends' end
+      for _, mode in ipairs {'click', 'drag', 'move'} do
+         expect(input_differences('\27[?1006h', function(term)
+            term:set_termprop('mouse', mode)
+            term:set_termprop('focusreport', true)
+         end)).to_equal {}
+      end

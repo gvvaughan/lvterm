@@ -99,6 +99,9 @@ function differences(stream, rows, cols, more, resize)
    if a:mouse_mode() ~= b:mouse_mode() then
       diffs[#diffs + 1] = 'mouse_mode'
    end
+   if a:focus_reporting() ~= b:focus_reporting() then
+      diffs[#diffs + 1] = 'focus_reporting'
+   end
    if a:bells() ~= b:bells() then
       diffs[#diffs + 1] = 'bells'
    end
@@ -134,12 +137,17 @@ end
 -- Each is made a terminal, fed the same bytes, and then asked for every
 -- key with every combination of modifiers, and some characters and pastes.
 -- @string stream what to write to both first, such as a mode to set
+-- @tparam[opt] function setup what to call on both after that, with the terminal
 -- @treturn {string,...} descriptions of the differences, none if the same
-function input_differences(stream)
+function input_differences(stream, setup)
    local a = terminal.new(ffi_backend.new(5, 20), 5, 20)
    local b = terminal.new(core_backend.new(5, 20), 5, 20)
    a:write(stream)
    b:write(stream)
+   if setup then
+      setup(a)
+      setup(b)
+   end
    a:output()
    b:output()
 
@@ -191,6 +199,14 @@ function input_differences(stream)
                end
             end
          end
+      end
+   end
+
+   for _, gained in ipairs {true, false, true} do
+      a[gained and 'focus_in' or 'focus_out'](a)
+      b[gained and 'focus_in' or 'focus_out'](b)
+      if a:output() ~= b:output() then
+         diffs[#diffs + 1] = string.format('focus %s', gained and 'in' or 'out')
       end
    end
 

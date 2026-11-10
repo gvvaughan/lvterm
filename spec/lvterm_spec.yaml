@@ -399,6 +399,20 @@ specify lvterm:
       ]]
       expect(out).to_be 'E[<2;3;2M\ndone\n'
 
+  - it still tells the program of the focus when the first report comes after many calls that sent none:
+      out = fresh [[
+         local term = lvterm.new(5, 40)
+         for i = 1, 250 do
+            term:focus_in()
+            term:focus_out()
+         end
+         term:write '\27[?1004h'
+         term:focus_in()
+         term:focus_out()
+         print((term:output():gsub('\27', 'E')))
+      ]]
+      expect(out).to_be 'E[IE[O\ndone\n'
+
 - describe altscreen:
   - it is not on to start with:
       term = lvterm.new(2, 4)
@@ -752,3 +766,113 @@ specify lvterm:
       term = lvterm.new(2, 4)
       term:write 'a\7b'
       expect(term:row(0)).to_be 'ab  '
+
+- describe set_termprop:
+  - it sets the mouse that the program is told of, as `mouse_mode` says:
+      term = lvterm.new(2, 4)
+      term:set_termprop('mouse', 'click')
+      expect(term:mouse_mode()).to_be 'click'
+      term:set_termprop('mouse', 'drag')
+      expect(term:mouse_mode()).to_be 'drag'
+      term:set_termprop('mouse', 'move')
+      expect(term:mouse_mode()).to_be 'move'
+      term:set_termprop('mouse', 'none')
+      expect(term:mouse_mode()).to_be 'none'
+  - it makes the terminal tell the program of the mouse, in the form that is used until the program asks for another:
+      term = lvterm.new(5, 20)
+      term:set_termprop('mouse', 'click')
+      expect(clicks(term, 2, 3, 'left', true)).to_be '\27[M $#'
+  - it is the same as the program asking, whatever the program asks for:
+      for _, mode in ipairs {'click', 'drag', 'move'} do
+         by_program = lvterm.new(5, 20)
+         by_program:write('\27[?' .. ({click = 1000, drag = 1002, move = 1003})[mode] .. 'h\27[?1006h')
+         by_call = lvterm.new(5, 20)
+         by_call:set_termprop('mouse', mode)
+         by_call:write '\27[?1006h'
+         expect(clicks(by_call, 2, 3, 'left', true)).to_be(clicks(by_program, 2, 3, 'left', true))
+         by_call:mouse_move(3, 5)
+         by_program:mouse_move(3, 5)
+         expect(by_call:output()).to_be(by_program:output())
+      end
+  - it leaves how the mouse is written to the program:
+      term = lvterm.new(5, 20)
+      term:set_termprop('mouse', 'click')
+      term:write '\27[?1006h'
+      expect(clicks(term, 2, 3, 'left', true)).to_be '\27[<0;4;3M'
+  - it stops the mouse being told of, when it is none:
+      term = lvterm.new(5, 20)
+      term:set_termprop('mouse', 'click')
+      term:set_termprop('mouse', 'none')
+      expect(clicks(term, 2, 3, 'left', true)).to_be ''
+  - it sets whether the program is told of the focus, as `focus_reporting` says:
+      term = lvterm.new(2, 4)
+      term:set_termprop('focusreport', true)
+      expect(term:focus_reporting()).to_be(true)
+      term:set_termprop('focusreport', false)
+      expect(term:focus_reporting()).to_be(false)
+  - it diagnoses a property that is not supported, and a value that is not one of its values:
+      term = lvterm.new(2, 4)
+      expect(term:set_termprop('title', 'x')).to_raise 'unsupported property'
+      expect(term:set_termprop(8, 'click')).to_raise 'unsupported property'
+      expect(term:set_termprop('mouse', 'everything')).to_raise 'unknown mouse mode'
+      expect(term:set_termprop('mouse', true)).to_raise 'unknown mouse mode'
+      expect(term:set_termprop('focusreport', 'yes')).to_raise 'not true or false'
+  - it returns the terminal, so calls can be chained:
+      term = lvterm.new(2, 4)
+      expect(term:set_termprop('mouse', 'click')).to_be(term)
+
+- describe focus_reporting:
+  - it is false to start with:
+      term = lvterm.new(2, 4)
+      expect(term:focus_reporting()).to_be(false)
+  - it follows what the program asks for:
+      term = lvterm.new(2, 4)
+      term:write '\27[?1004h'
+      expect(term:focus_reporting()).to_be(true)
+      term:write '\27[?1004l'
+      expect(term:focus_reporting()).to_be(false)
+  - it is false after a reset, when nothing is sent for the focus any more:
+      term = lvterm.new(2, 4)
+      term:set_termprop('focusreport', true)
+      term:reset(true)
+      expect(term:focus_reporting()).to_be(false)
+      term:focus_in()
+      expect(term:output()).to_be ''
+
+- describe focus_in:
+  - it sends nothing when the program did not ask to be told:
+      term = lvterm.new(2, 4)
+      term:focus_in()
+      expect(term:output()).to_be ''
+  - it sends the report that the terminal gained the focus when the program asked:
+      term = lvterm.new(2, 4)
+      term:write '\27[?1004h'
+      term:focus_in()
+      expect(term:output()).to_be '\27[I'
+  - it is sent when set_termprop asked for it as well:
+      term = lvterm.new(2, 4)
+      term:set_termprop('focusreport', true)
+      term:focus_in()
+      expect(term:output()).to_be '\27[I'
+  - it returns the terminal, so calls can be chained:
+      term = lvterm.new(2, 4)
+      expect(term:focus_in()).to_be(term)
+
+- describe focus_out:
+  - it sends nothing when the program did not ask to be told:
+      term = lvterm.new(2, 4)
+      term:focus_out()
+      expect(term:output()).to_be ''
+  - it sends the report that the terminal lost the focus when the program asked:
+      term = lvterm.new(2, 4)
+      term:write '\27[?1004h'
+      term:focus_out()
+      expect(term:output()).to_be '\27[O'
+  - it sends nothing when the program has asked no more:
+      term = lvterm.new(2, 4)
+      term:write '\27[?1004h\27[?1004l'
+      term:focus_out()
+      expect(term:output()).to_be ''
+  - it returns the terminal, so calls can be chained:
+      term = lvterm.new(2, 4)
+      expect(term:focus_out()).to_be(term)
