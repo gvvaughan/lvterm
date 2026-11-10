@@ -2,6 +2,9 @@
 
 ## Noteworthy changes in release ?.? (????-??-??) [?]
 
+
+## Noteworthy changes in release 0.3 (2026-11-10) [stable]
+
 ### New Features
 
   - `lvterm.version` is a table, as the version of luke and smush is:
