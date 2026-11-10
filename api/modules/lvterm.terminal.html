@@ -3,7 +3,7 @@
 <html>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
 <head>
-    <title>lvterm 0.2 Reference</title>
+    <title>lvterm 0.3 Reference</title>
     <link rel="stylesheet" href="../ldoc.css" type="text/css" />
 </head>
 <body>
@@ -24,7 +24,7 @@
 
 <div id="navigation">
 <br/>
-<h1>lvterm 0.2</h1>
+<h1>lvterm 0.3</h1>
 
 
 <ul>
@@ -33,7 +33,6 @@
 
 <h2>Contents</h2>
 <ul>
-<li><a href="#Functions">Functions</a></li>
 <li><a href="#Class_Terminal">Class Terminal </a></li>
 </ul>
 
@@ -57,105 +56,122 @@
  reads text, once, for all of them.</p>
 
 
-<h2><a href="#Functions">Functions</a></h2>
-<table class="function_list">
-	<tr>
-	<td class="name" nowrap><a href="#new">new (handle, rows, cols)</a></td>
-	<td class="summary">Make a terminal over a handle.</td>
-	</tr>
-</table>
 <h2><a href="#Class_Terminal">Class Terminal </a></h2>
 <table class="function_list">
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:altscreen">Terminal:altscreen ()</a></td>
+	<td class="name" nowrap><a href="#terminal:altscreen">terminal:altscreen ()</a></td>
 	<td class="summary">Whether the program is on the alternate screen.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:bells">Terminal:bells ()</a></td>
+	<td class="name" nowrap><a href="#terminal:bells">terminal:bells ()</a></td>
 	<td class="summary">Take how many times the program rang the bell.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:cell">Terminal:cell (row, col)</a></td>
+	<td class="name" nowrap><a href="#terminal:cell">terminal:cell (row, col)</a></td>
 	<td class="summary">What one cell of the screen shows.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:char">Terminal:char (cp[, mods])</a></td>
+	<td class="name" nowrap><a href="#terminal:char">terminal:char (cp[, mods])</a></td>
 	<td class="summary">Type a character, as the terminal would send it to the program.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:cursor">Terminal:cursor ()</a></td>
+	<td class="name" nowrap><a href="#terminal:cursor">terminal:cursor ()</a></td>
 	<td class="summary">Where the cursor is.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:cursor_visible">Terminal:cursor_visible ()</a></td>
+	<td class="name" nowrap><a href="#terminal:cursor_visible">terminal:cursor_visible ()</a></td>
 	<td class="summary">Whether the program has the cursor shown.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:key">Terminal:key (name[, mods])</a></td>
+	<td class="name" nowrap><a href="#terminal:focus_in">terminal:focus_in ()</a></td>
+	<td class="summary">Tell the program that the terminal gained the focus, if it asked to be told.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:focus_out">terminal:focus_out ()</a></td>
+	<td class="summary">Tell the program that the terminal lost the focus, if it asked to be told.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:focus_reporting">terminal:focus_reporting ()</a></td>
+	<td class="summary">Whether the program asked to be told when the terminal gains or loses the focus.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:key">terminal:key (name[, mods])</a></td>
 	<td class="summary">Press a key, as the terminal would send it to the program.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:lines">Terminal:lines ()</a></td>
+	<td class="name" nowrap><a href="#terminal:lines">terminal:lines ()</a></td>
 	<td class="summary">Every row of the screen.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:mouse_button">Terminal:mouse_button (button, pressed[, mods])</a></td>
+	<td class="name" nowrap><a href="#terminal:mouse_button">terminal:mouse_button (button, pressed[, mods])</a></td>
 	<td class="summary">Press or release a mouse button, as the terminal would tell the program.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:mouse_mode">Terminal:mouse_mode ()</a></td>
+	<td class="name" nowrap><a href="#terminal:mouse_mode">terminal:mouse_mode ()</a></td>
 	<td class="summary">What the program asked to be told about the mouse.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:mouse_move">Terminal:mouse_move (row, col[, mods])</a></td>
+	<td class="name" nowrap><a href="#terminal:mouse_move">terminal:mouse_move (row, col[, mods])</a></td>
 	<td class="summary">Move the mouse, as the terminal would tell the program.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:output">Terminal:output ()</a></td>
+	<td class="name" nowrap><a href="#terminal:new">terminal:new (handle, rows, cols)</a></td>
+	<td class="summary">Make a terminal over a handle.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:output">terminal:output ()</a></td>
 	<td class="summary">Take what the terminal has to send back to the program.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:paste">Terminal:paste (text)</a></td>
+	<td class="name" nowrap><a href="#terminal:paste">terminal:paste (text)</a></td>
 	<td class="summary">Paste text, as the terminal would send it to the program.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:reset">Terminal:reset ([hard=true])</a></td>
+	<td class="name" nowrap><a href="#terminal:reset">terminal:reset ([hard=true])</a></td>
 	<td class="summary">Return the terminal to its initial state.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:resize">Terminal:resize (rows, cols)</a></td>
+	<td class="name" nowrap><a href="#terminal:resize">terminal:resize (rows, cols)</a></td>
 	<td class="summary">Change the size of the terminal.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:row">Terminal:row (row)</a></td>
+	<td class="name" nowrap><a href="#terminal:row">terminal:row (row)</a></td>
 	<td class="summary">A whole row of the screen.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:scrollback_clear">Terminal:scrollback_clear ()</a></td>
+	<td class="name" nowrap><a href="#terminal:scrollback_clear">terminal:scrollback_clear ()</a></td>
 	<td class="summary">Forget the scrollback.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:scrollback_line">Terminal:scrollback_line (n)</a></td>
+	<td class="name" nowrap><a href="#terminal:scrollback_line">terminal:scrollback_line (n)</a></td>
 	<td class="summary">A line that scrolled off the top of the screen.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:scrollback_size">Terminal:scrollback_size ()</a></td>
+	<td class="name" nowrap><a href="#terminal:scrollback_size">terminal:scrollback_size ()</a></td>
 	<td class="summary">How many lines have scrolled off the top of the screen.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:size">Terminal:size ()</a></td>
+	<td class="name" nowrap><a href="#terminal:set_mode">terminal:set_mode (name, value)</a></td>
+	<td class="summary">Set a mode that libvterm has no call for, as the program would, by writing the sequence that it writes.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:set_termprop">terminal:set_termprop (name, value)</a></td>
+	<td class="summary">Set a property of the terminal, as <code>vterm_state_set_termprop</code> does.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:size">terminal:size ()</a></td>
 	<td class="summary">The size of the terminal.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:text">Terminal:text (row[, col=0[, n]])</a></td>
+	<td class="name" nowrap><a href="#terminal:text">terminal:text (row[, col=0[, n]])</a></td>
 	<td class="summary">Some of the text on the screen, from one row.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:title">Terminal:title ()</a></td>
+	<td class="name" nowrap><a href="#terminal:title">terminal:title ()</a></td>
 	<td class="summary">The title that the program set.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Terminal:write">Terminal:write (bytes)</a></td>
+	<td class="name" nowrap><a href="#terminal:write">terminal:write (bytes)</a></td>
 	<td class="summary">Feed bytes to the terminal, as a program writes them.</td>
 	</tr>
 </table>
@@ -164,46 +180,6 @@
 <br/>
 
 
-    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
-
-    <dl class="function">
-    <dt>
-    <a name = "new"></a>
-    <strong>new (handle, rows, cols)</strong>
-    </dt>
-    <dd>
-    Make a terminal over a handle.
-
-
-    <h3>Parameters:</h3>
-    <ul>
-        <li><span class="parameter">handle</span>
-         what a backend made, for the given size
-        </li>
-        <li><span class="parameter">rows</span>
-            <span class="types"><span class="type">int</span></span>
-         height in lines
-        </li>
-        <li><span class="parameter">cols</span>
-            <span class="types"><span class="type">int</span></span>
-         width in columns
-        </li>
-    </ul>
-
-    <h3>Returns:</h3>
-    <ol>
-
-           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
-
-
-
-    </ol>
-
-
-
-
-</dd>
-</dl>
     <h2 class="section-header has-description"><a name="Class_Terminal"></a>Class Terminal </h2>
 
           <div class="section-description">
@@ -212,8 +188,8 @@
           </div>
     <dl class="function">
     <dt>
-    <a name = "Terminal:altscreen"></a>
-    <strong>Terminal:altscreen ()</strong>
+    <a name = "terminal:altscreen"></a>
+    <strong>terminal:altscreen ()</strong>
     </dt>
     <dd>
     Whether the program is on the alternate screen.
@@ -232,8 +208,8 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:bells"></a>
-    <strong>Terminal:bells ()</strong>
+    <a name = "terminal:bells"></a>
+    <strong>terminal:bells ()</strong>
     </dt>
     <dd>
     Take how many times the program rang the bell.
@@ -252,8 +228,8 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:cell"></a>
-    <strong>Terminal:cell (row, col)</strong>
+    <a name = "terminal:cell"></a>
+    <strong>terminal:cell (row, col)</strong>
     </dt>
     <dd>
     What one cell of the screen shows.
@@ -289,8 +265,8 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:char"></a>
-    <strong>Terminal:char (cp[, mods])</strong>
+    <a name = "terminal:char"></a>
+    <strong>terminal:char (cp[, mods])</strong>
     </dt>
     <dd>
     Type a character, as the terminal would send it to the program.
@@ -321,8 +297,8 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:cursor"></a>
-    <strong>Terminal:cursor ()</strong>
+    <a name = "terminal:cursor"></a>
+    <strong>terminal:cursor ()</strong>
     </dt>
     <dd>
     Where the cursor is.
@@ -344,8 +320,8 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:cursor_visible"></a>
-    <strong>Terminal:cursor_visible ()</strong>
+    <a name = "terminal:cursor_visible"></a>
+    <strong>terminal:cursor_visible ()</strong>
     </dt>
     <dd>
     Whether the program has the cursor shown.
@@ -364,8 +340,74 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:key"></a>
-    <strong>Terminal:key (name[, mods])</strong>
+    <a name = "terminal:focus_in"></a>
+    <strong>terminal:focus_in ()</strong>
+    </dt>
+    <dd>
+    Tell the program that the terminal gained the focus, if it asked to be told.
+ What is sent is taken with <code>output</code>.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:focus_out"></a>
+    <strong>terminal:focus_out ()</strong>
+    </dt>
+    <dd>
+    Tell the program that the terminal lost the focus, if it asked to be told.
+ What is sent is taken with <code>output</code>.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:focus_reporting"></a>
+    <strong>terminal:focus_reporting ()</strong>
+    </dt>
+    <dd>
+    Whether the program asked to be told when the terminal gains or loses the focus.
+ A program asks with <code>ESC [ ? 1004 h</code>, or <code>set_termprop</code> can for it, and
+ <code>focus_in</code> and <code>focus_out</code> send nothing until it has.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:key"></a>
+    <strong>terminal:key (name[, mods])</strong>
     </dt>
     <dd>
     Press a key, as the terminal would send it to the program.
@@ -399,8 +441,8 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:lines"></a>
-    <strong>Terminal:lines ()</strong>
+    <a name = "terminal:lines"></a>
+    <strong>terminal:lines ()</strong>
     </dt>
     <dd>
     Every row of the screen.
@@ -419,13 +461,13 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:mouse_button"></a>
-    <strong>Terminal:mouse_button (button, pressed[, mods])</strong>
+    <a name = "terminal:mouse_button"></a>
+    <strong>terminal:mouse_button (button, pressed[, mods])</strong>
     </dt>
     <dd>
     Press or release a mouse button, as the terminal would tell the program.
- The button is at the place that <code>mouse_move</code> last gave, and the program
- is told at once of a press or release if it asked for them.
+ The press or release happens where <code>mouse_move</code> last put the mouse, and the
+ program is told of it if it asked to hear about it.
 
 
     <h3>Parameters:</h3>
@@ -458,13 +500,13 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:mouse_mode"></a>
-    <strong>Terminal:mouse_mode ()</strong>
+    <a name = "terminal:mouse_mode"></a>
+    <strong>terminal:mouse_mode ()</strong>
     </dt>
     <dd>
     What the program asked to be told about the mouse.
- It is turned on by the program with a sequence such as <code>ESC [ ? 1000 h</code>, and
- <code>mouse_move</code> and <code>mouse_button</code> send nothing until it is.
+ A program asks with a sequence such as <code>ESC [ ? 1000 h</code>, and until it does,
+ <code>mouse_move</code> and <code>mouse_button</code> send nothing.
 
 
 
@@ -481,13 +523,13 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:mouse_move"></a>
-    <strong>Terminal:mouse_move (row, col[, mods])</strong>
+    <a name = "terminal:mouse_move"></a>
+    <strong>terminal:mouse_move (row, col[, mods])</strong>
     </dt>
     <dd>
     Move the mouse, as the terminal would tell the program.
- What is sent depends on what the program asked for with <code>mouse_mode</code>, and
- how it asked for it to be written, and is taken with <code>output</code>.
+ What is sent depends on what the program asked to hear, which <code>mouse_mode</code>
+ says, and on how it asked for the reports to be written. Take it with <code>output</code>.
 
 
     <h3>Parameters:</h3>
@@ -519,8 +561,44 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:output"></a>
-    <strong>Terminal:output ()</strong>
+    <a name = "terminal:new"></a>
+    <strong>terminal:new (handle, rows, cols)</strong>
+    </dt>
+    <dd>
+    Make a terminal over a handle.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">handle</span>
+         what a backend made, for the given size
+        </li>
+        <li><span class="parameter">rows</span>
+            <span class="types"><span class="type">int</span></span>
+         height in lines
+        </li>
+        <li><span class="parameter">cols</span>
+            <span class="types"><span class="type">int</span></span>
+         width in columns
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:output"></a>
+    <strong>terminal:output ()</strong>
     </dt>
     <dd>
     Take what the terminal has to send back to the program.
@@ -542,8 +620,8 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:paste"></a>
-    <strong>Terminal:paste (text)</strong>
+    <a name = "terminal:paste"></a>
+    <strong>terminal:paste (text)</strong>
     </dt>
     <dd>
     Paste text, as the terminal would send it to the program.
@@ -571,8 +649,8 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:reset"></a>
-    <strong>Terminal:reset ([hard=true])</strong>
+    <a name = "terminal:reset"></a>
+    <strong>terminal:reset ([hard=true])</strong>
     </dt>
     <dd>
     Return the terminal to its initial state.
@@ -599,8 +677,8 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:resize"></a>
-    <strong>Terminal:resize (rows, cols)</strong>
+    <a name = "terminal:resize"></a>
+    <strong>terminal:resize (rows, cols)</strong>
     </dt>
     <dd>
     Change the size of the terminal.
@@ -630,8 +708,8 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:row"></a>
-    <strong>Terminal:row (row)</strong>
+    <a name = "terminal:row"></a>
+    <strong>terminal:row (row)</strong>
     </dt>
     <dd>
     A whole row of the screen.
@@ -657,8 +735,8 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:scrollback_clear"></a>
-    <strong>Terminal:scrollback_clear ()</strong>
+    <a name = "terminal:scrollback_clear"></a>
+    <strong>terminal:scrollback_clear ()</strong>
     </dt>
     <dd>
     Forget the scrollback.
@@ -677,8 +755,8 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:scrollback_line"></a>
-    <strong>Terminal:scrollback_line (n)</strong>
+    <a name = "terminal:scrollback_line"></a>
+    <strong>terminal:scrollback_line (n)</strong>
     </dt>
     <dd>
     A line that scrolled off the top of the screen.
@@ -705,8 +783,8 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:scrollback_size"></a>
-    <strong>Terminal:scrollback_size ()</strong>
+    <a name = "terminal:scrollback_size"></a>
+    <strong>terminal:scrollback_size ()</strong>
     </dt>
     <dd>
     How many lines have scrolled off the top of the screen.
@@ -726,8 +804,76 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:size"></a>
-    <strong>Terminal:size ()</strong>
+    <a name = "terminal:set_mode"></a>
+    <strong>terminal:set_mode (name, value)</strong>
+    </dt>
+    <dd>
+    Set a mode that libvterm has no call for, as the program would, by writing the sequence that it writes.
+ Unlike <code>set_termprop</code>, which wraps a call of libvterm, this is only for a test that stands in for the
+ program not to write the sequences.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+         <code>bracketed_paste</code> or <code>application_cursor_keys</code>, with a value of true or false, or
+   <code>mouse_encoding</code>, with a value of <code>x10</code>, <code>utf8</code>, <code>sgr</code> or <code>urxvt</code> for how the reports of the
+   mouse are written, which is <code>x10</code> until it is set
+        </li>
+        <li><span class="parameter">value</span>
+         the value of the mode
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:set_termprop"></a>
+    <strong>terminal:set_termprop (name, value)</strong>
+    </dt>
+    <dd>
+    Set a property of the terminal, as <code>vterm_state_set_termprop</code> does.
+ A program sets properties with the sequences that it writes, and this sets them
+ as the program would have, which saves a test that stands in for the program from writing them.
+ Only the properties for what the program is told are supported so far.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+         <code>mouse</code>, with a value of <code>none</code>, <code>click</code>, <code>drag</code> or <code>move</code>, as <code>mouse_mode</code>
+   gives, or <code>focusreport</code>, with a value of true or false
+        </li>
+        <li><span class="parameter">value</span>
+         the value of the property
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:size"></a>
+    <strong>terminal:size ()</strong>
     </dt>
     <dd>
     The size of the terminal.
@@ -749,8 +895,8 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:text"></a>
-    <strong>Terminal:text (row[, col=0[, n]])</strong>
+    <a name = "terminal:text"></a>
+    <strong>terminal:text (row[, col=0[, n]])</strong>
     </dt>
     <dd>
     Some of the text on the screen, from one row.
@@ -787,13 +933,14 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:title"></a>
-    <strong>Terminal:title ()</strong>
+    <a name = "terminal:title"></a>
+    <strong>terminal:title ()</strong>
     </dt>
     <dd>
     The title that the program set.
- It is set by the program with <code>ESC ] 0 ; title BEL</code> or <code>ESC ] 2 ; title BEL</code>,
- and is the last whole one, so one that is still being written is not it.
+ A program sets the title with <code>ESC ] 0 ; title BEL</code> or <code>ESC ] 2 ; title BEL</code>.
+ The title is the last complete one: a title that is still being written does
+ not count yet.
 
 
 
@@ -809,8 +956,8 @@
 
 </dd>
     <dt>
-    <a name = "Terminal:write"></a>
-    <strong>Terminal:write (bytes)</strong>
+    <a name = "terminal:write"></a>
+    <strong>terminal:write (bytes)</strong>
     </dt>
     <dd>
     Feed bytes to the terminal, as a program writes them.
@@ -842,7 +989,7 @@
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/lunarmodules/ldoc">LDoc 1.5.0</a></i>
-<i style="float:right;">Last updated 2026-11-10 11:20:04 </i>
+<i style="float:right;">Last updated 2026-11-10 16:41:36 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>

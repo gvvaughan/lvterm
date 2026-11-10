@@ -3,7 +3,7 @@
 <html>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
 <head>
-    <title>lvterm 0.2 Reference</title>
+    <title>lvterm 0.3 Reference</title>
     <link rel="stylesheet" href="../ldoc.css" type="text/css" />
 </head>
 <body>
@@ -24,7 +24,7 @@
 
 <div id="navigation">
 <br/>
-<h1>lvterm 0.2</h1>
+<h1>lvterm 0.3</h1>
 
 
 <ul>
@@ -69,79 +69,99 @@
 <h2><a href="#Class_Handle">Class Handle </a></h2>
 <table class="function_list">
 	<tr>
-	<td class="name" nowrap><a href="#Handle:altscreen">Handle:altscreen ()</a></td>
+	<td class="name" nowrap><a href="#handle.name">handle.name</a></td>
+	<td class="summary">The name of the backend.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#handle:altscreen">handle:altscreen ()</a></td>
 	<td class="summary">Whether the program is on the alternate screen.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:bells">Handle:bells ()</a></td>
+	<td class="name" nowrap><a href="#handle:bells">handle:bells ()</a></td>
 	<td class="summary">Take how many times the program rang the bell.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:cell">Handle:cell (row, col)</a></td>
+	<td class="name" nowrap><a href="#handle:cell">handle:cell (row, col)</a></td>
 	<td class="summary">What one cell of the screen shows, which must be on it.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:char">Handle:char (cp, mods)</a></td>
+	<td class="name" nowrap><a href="#handle:char">handle:char (cp, mods)</a></td>
 	<td class="summary">Type a character.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:cursor">Handle:cursor ()</a></td>
+	<td class="name" nowrap><a href="#handle:cursor">handle:cursor ()</a></td>
 	<td class="summary">Where the cursor is.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:cursor_visible">Handle:cursor_visible ()</a></td>
+	<td class="name" nowrap><a href="#handle:cursor_visible">handle:cursor_visible ()</a></td>
 	<td class="summary">Whether the program has the cursor shown.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:key">Handle:key (code, mods)</a></td>
+	<td class="name" nowrap><a href="#handle:focus_in">handle:focus_in ()</a></td>
+	<td class="summary">Tell the program that the terminal gained the focus.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#handle:focus_out">handle:focus_out ()</a></td>
+	<td class="summary">Tell the program that the terminal lost the focus.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#handle:focus_reporting">handle:focus_reporting ()</a></td>
+	<td class="summary">Whether the program asked to be told when the terminal gains or loses the focus.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#handle:key">handle:key (code, mods)</a></td>
 	<td class="summary">Press a key.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:mouse_button">Handle:mouse_button (button, pressed, mods)</a></td>
+	<td class="name" nowrap><a href="#handle:mouse_button">handle:mouse_button (button, pressed, mods)</a></td>
 	<td class="summary">Press or release a mouse button, where the mouse last was.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:mouse_mode">Handle:mouse_mode ()</a></td>
+	<td class="name" nowrap><a href="#handle:mouse_mode">handle:mouse_mode ()</a></td>
 	<td class="summary">What the program asked to be told about the mouse.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:mouse_move">Handle:mouse_move (row, col, mods)</a></td>
+	<td class="name" nowrap><a href="#handle:mouse_move">handle:mouse_move (row, col, mods)</a></td>
 	<td class="summary">Move the mouse.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:output">Handle:output ()</a></td>
+	<td class="name" nowrap><a href="#handle:output">handle:output ()</a></td>
 	<td class="summary">Take what the terminal has to send back to the program.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:paste">Handle:paste (text)</a></td>
+	<td class="name" nowrap><a href="#handle:paste">handle:paste (text)</a></td>
 	<td class="summary">Paste text, between the marks that the program asked for, if it did.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:reset">Handle:reset (hard)</a></td>
+	<td class="name" nowrap><a href="#handle:reset">handle:reset (hard)</a></td>
 	<td class="summary">Return the terminal to its initial state.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:resize">Handle:resize (rows, cols)</a></td>
+	<td class="name" nowrap><a href="#handle:resize">handle:resize (rows, cols)</a></td>
 	<td class="summary">Change the size of the terminal.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:scrollback_clear">Handle:scrollback_clear ()</a></td>
+	<td class="name" nowrap><a href="#handle:scrollback_clear">handle:scrollback_clear ()</a></td>
 	<td class="summary">Forget the lines that scrolled off the top.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:scrollback_line">Handle:scrollback_line (n)</a></td>
+	<td class="name" nowrap><a href="#handle:scrollback_line">handle:scrollback_line (n)</a></td>
 	<td class="summary">A line that scrolled off the top, which must be there.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:scrollback_size">Handle:scrollback_size ()</a></td>
+	<td class="name" nowrap><a href="#handle:scrollback_size">handle:scrollback_size ()</a></td>
 	<td class="summary">How many lines have scrolled off the top.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:title">Handle:title ()</a></td>
+	<td class="name" nowrap><a href="#handle:set_termprop">handle:set_termprop (prop, value)</a></td>
+	<td class="summary">Set a property of the terminal, as the program would with a sequence.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#handle:title">handle:title ()</a></td>
 	<td class="summary">The title that the program set.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#Handle:write">Handle:write (bytes)</a></td>
+	<td class="name" nowrap><a href="#handle:write">handle:write (bytes)</a></td>
 	<td class="summary">Feed bytes to the terminal.</td>
 	</tr>
 </table>
@@ -200,8 +220,27 @@
           </div>
     <dl class="function">
     <dt>
-    <a name = "Handle:altscreen"></a>
-    <strong>Handle:altscreen ()</strong>
+    <a name = "handle.name"></a>
+    <strong>handle.name</strong>
+    </dt>
+    <dd>
+    The name of the backend.
+
+
+    <ul>
+        <li><span class="parameter">name</span>
+         <code>'ffi'</code>
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "handle:altscreen"></a>
+    <strong>handle:altscreen ()</strong>
     </dt>
     <dd>
     Whether the program is on the alternate screen.
@@ -222,8 +261,8 @@
 
 </dd>
     <dt>
-    <a name = "Handle:bells"></a>
-    <strong>Handle:bells ()</strong>
+    <a name = "handle:bells"></a>
+    <strong>handle:bells ()</strong>
     </dt>
     <dd>
     Take how many times the program rang the bell.
@@ -242,8 +281,8 @@
 
 </dd>
     <dt>
-    <a name = "Handle:cell"></a>
-    <strong>Handle:cell (row, col)</strong>
+    <a name = "handle:cell"></a>
+    <strong>handle:cell (row, col)</strong>
     </dt>
     <dd>
     What one cell of the screen shows, which must be on it.
@@ -273,8 +312,8 @@
 
 </dd>
     <dt>
-    <a name = "Handle:char"></a>
-    <strong>Handle:char (cp, mods)</strong>
+    <a name = "handle:char"></a>
+    <strong>handle:char (cp, mods)</strong>
     </dt>
     <dd>
     Type a character.
@@ -298,8 +337,8 @@
 
 </dd>
     <dt>
-    <a name = "Handle:cursor"></a>
-    <strong>Handle:cursor ()</strong>
+    <a name = "handle:cursor"></a>
+    <strong>handle:cursor ()</strong>
     </dt>
     <dd>
     Where the cursor is.
@@ -321,8 +360,8 @@
 
 </dd>
     <dt>
-    <a name = "Handle:cursor_visible"></a>
-    <strong>Handle:cursor_visible ()</strong>
+    <a name = "handle:cursor_visible"></a>
+    <strong>handle:cursor_visible ()</strong>
     </dt>
     <dd>
     Whether the program has the cursor shown.
@@ -343,8 +382,58 @@
 
 </dd>
     <dt>
-    <a name = "Handle:key"></a>
-    <strong>Handle:key (code, mods)</strong>
+    <a name = "handle:focus_in"></a>
+    <strong>handle:focus_in ()</strong>
+    </dt>
+    <dd>
+    Tell the program that the terminal gained the focus.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "handle:focus_out"></a>
+    <strong>handle:focus_out ()</strong>
+    </dt>
+    <dd>
+    Tell the program that the terminal lost the focus.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "handle:focus_reporting"></a>
+    <strong>handle:focus_reporting ()</strong>
+    </dt>
+    <dd>
+    Whether the program asked to be told when the terminal gains or loses the focus.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "handle:key"></a>
+    <strong>handle:key (code, mods)</strong>
     </dt>
     <dd>
     Press a key.
@@ -368,8 +457,8 @@
 
 </dd>
     <dt>
-    <a name = "Handle:mouse_button"></a>
-    <strong>Handle:mouse_button (button, pressed, mods)</strong>
+    <a name = "handle:mouse_button"></a>
+    <strong>handle:mouse_button (button, pressed, mods)</strong>
     </dt>
     <dd>
     Press or release a mouse button, where the mouse last was.
@@ -398,8 +487,8 @@
 
 </dd>
     <dt>
-    <a name = "Handle:mouse_mode"></a>
-    <strong>Handle:mouse_mode ()</strong>
+    <a name = "handle:mouse_mode"></a>
+    <strong>handle:mouse_mode ()</strong>
     </dt>
     <dd>
     What the program asked to be told about the mouse.
@@ -418,8 +507,8 @@
 
 </dd>
     <dt>
-    <a name = "Handle:mouse_move"></a>
-    <strong>Handle:mouse_move (row, col, mods)</strong>
+    <a name = "handle:mouse_move"></a>
+    <strong>handle:mouse_move (row, col, mods)</strong>
     </dt>
     <dd>
     Move the mouse.
@@ -447,8 +536,8 @@
 
 </dd>
     <dt>
-    <a name = "Handle:output"></a>
-    <strong>Handle:output ()</strong>
+    <a name = "handle:output"></a>
+    <strong>handle:output ()</strong>
     </dt>
     <dd>
     Take what the terminal has to send back to the program.
@@ -467,8 +556,8 @@
 
 </dd>
     <dt>
-    <a name = "Handle:paste"></a>
-    <strong>Handle:paste (text)</strong>
+    <a name = "handle:paste"></a>
+    <strong>handle:paste (text)</strong>
     </dt>
     <dd>
     Paste text, between the marks that the program asked for, if it did.
@@ -489,8 +578,8 @@
 
 </dd>
     <dt>
-    <a name = "Handle:reset"></a>
-    <strong>Handle:reset (hard)</strong>
+    <a name = "handle:reset"></a>
+    <strong>handle:reset (hard)</strong>
     </dt>
     <dd>
     Return the terminal to its initial state.
@@ -510,8 +599,8 @@
 
 </dd>
     <dt>
-    <a name = "Handle:resize"></a>
-    <strong>Handle:resize (rows, cols)</strong>
+    <a name = "handle:resize"></a>
+    <strong>handle:resize (rows, cols)</strong>
     </dt>
     <dd>
     Change the size of the terminal.
@@ -535,8 +624,8 @@
 
 </dd>
     <dt>
-    <a name = "Handle:scrollback_clear"></a>
-    <strong>Handle:scrollback_clear ()</strong>
+    <a name = "handle:scrollback_clear"></a>
+    <strong>handle:scrollback_clear ()</strong>
     </dt>
     <dd>
     Forget the lines that scrolled off the top.
@@ -549,8 +638,8 @@
 
 </dd>
     <dt>
-    <a name = "Handle:scrollback_line"></a>
-    <strong>Handle:scrollback_line (n)</strong>
+    <a name = "handle:scrollback_line"></a>
+    <strong>handle:scrollback_line (n)</strong>
     </dt>
     <dd>
     A line that scrolled off the top, which must be there.
@@ -576,8 +665,8 @@
 
 </dd>
     <dt>
-    <a name = "Handle:scrollback_size"></a>
-    <strong>Handle:scrollback_size ()</strong>
+    <a name = "handle:scrollback_size"></a>
+    <strong>handle:scrollback_size ()</strong>
     </dt>
     <dd>
     How many lines have scrolled off the top.
@@ -596,8 +685,33 @@
 
 </dd>
     <dt>
-    <a name = "Handle:title"></a>
-    <strong>Handle:title ()</strong>
+    <a name = "handle:set_termprop"></a>
+    <strong>handle:set_termprop (prop, value)</strong>
+    </dt>
+    <dd>
+    Set a property of the terminal, as the program would with a sequence.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">prop</span>
+            <span class="types"><span class="type">int</span></span>
+         the number that libvterm has for the property
+        </li>
+        <li><span class="parameter">value</span>
+            <span class="types"><span class="type">int</span></span>
+         the number or boolean that libvterm takes for it, as a number
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "handle:title"></a>
+    <strong>handle:title ()</strong>
     </dt>
     <dd>
     The title that the program set.
@@ -616,8 +730,8 @@
 
 </dd>
     <dt>
-    <a name = "Handle:write"></a>
-    <strong>Handle:write (bytes)</strong>
+    <a name = "handle:write"></a>
+    <strong>handle:write (bytes)</strong>
     </dt>
     <dd>
     Feed bytes to the terminal.
@@ -643,7 +757,7 @@
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/lunarmodules/ldoc">LDoc 1.5.0</a></i>
-<i style="float:right;">Last updated 2026-11-10 11:20:04 </i>
+<i style="float:right;">Last updated 2026-11-10 16:41:36 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>

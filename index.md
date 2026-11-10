@@ -3,51 +3,72 @@ layout: default
 ---
 # LVTERM
 
-[Lvterm][] is a virtual terminal for [Lua][], to test programs that draw
-on a terminal, or to host one.  Feed it the bytes that a program writes, and
-ask what the screen shows, and where the cursor is.
+[Lvterm][] is a virtual terminal for [Lua][]. It plays the part of a real
+terminal, so that you can test a program that draws on a terminal, or host
+one inside a program of your own, such as an editor with a window that runs a
+shell.
 
- * a screen to read, by cell, by run of text, by row, or all at once
-   ([screens](#2-screens))
- * the lines that scroll off the top, and whether the program is on the
-   alternate screen or has hidden the cursor ([scrollback](#3-scrollback))
- * the replies that a real terminal sends back to the program, and what it
-   sends for the keys that are typed to it, and for a paste
-   ([replies and keys](#4-replies-and-keys))
- * what the program asks of the mouse, and what is sent for it, and the title
-   that it sets and the bells that it rings
-   ([the mouse, the title and the bell](#5-the-mouse-the-title-and-the-bell))
- * emulation by [libvterm][], through the FFI of [LuaJIT][] or a thin C
-   binding for every Lua from 5.1 to 5.5 ([backends](#6-backends))
+Using it is a conversation in two directions. Whatever the program would
+print goes in with `write`, and you read the screen that results. Whatever the
+terminal would send back to the program, such as a reply to a question, a key
+that was pressed, or a click of the mouse, comes out of `output`.
 
-The [reference](api/) documents each function.
+```lua
+local lvterm = require 'lvterm'
+local term = lvterm.new(24, 80)
+
+term:write '\27[2;3Hhello\27[1;31m!'   -- the program draws
+term:text(1, 2, 5)                      --> 'hello'
+term:key 'up'                           -- the user presses a key
+term:output()                           --> '\27[A', which goes to the program
+```
+
+This manual follows that conversation:
+
+ * [Installation](#1-installation)
+ * [Reading the screen](#2-reading-the-screen)
+ * [Scrollback and the alternate screen](#3-scrollback-and-the-alternate-screen)
+ * [Sending input to the program](#4-sending-input-to-the-program)
+ * [What the program asks for](#5-what-the-program-asks-for): the mouse, the
+   focus, bracketed paste, the title and the bell
+ * [Backends](#6-backends)
+
+The [reference](api/) documents every function.
 
 
 ## 1. Installation
 
-Install libvterm and its headers with your package manager (the package is
-usually called `libvterm-dev`, or `libvterm` with Homebrew), then, with
+Install libvterm and its headers with your package manager. The package is
+usually called `libvterm-dev`, or `libvterm` with Homebrew. Then, with
 [LuaRocks][]:
 
     luarocks install lvterm
 
-LuaRocks finds libvterm when it builds the rock, and tells lvterm where.  If
-it isn't in a standard place, say where its `lib` directory is:
+LuaRocks finds libvterm when it builds the rock, and tells lvterm where it
+is. If libvterm is not in a standard place, say where its `lib` directory is:
 
     luarocks install lvterm VTERM_DIR=/opt/homebrew
 
 The rock is built by [luarocks-build-luke][], which LuaRocks installs for
-the build.
+you.
+
+`require 'lvterm'.version` says which version of lvterm is installed.
+
+### Optional modules
+
+Lvterm checks the types of its arguments if [typecheck][] is installed, and if
+[std.strict][] is installed, it makes its own modules declare every variable
+they use. You don't need either of them, and neither changes what lvterm does
+when you use it correctly.
 
 
-## 2. Screens
+## 2. Reading the screen
 
-`lvterm.new` makes a terminal of the given height and width, in rows and
-columns, which are 24 and 80 by default.  Write to it what a program
-writes, and read the screen:
+`lvterm.new` makes a terminal with the number of rows and columns that you
+give it, and 24 by 80 if you give none. Write to it what a program would
+write, and read back what the screen shows:
 
 ```lua
-local lvterm = require 'lvterm'
 local term = lvterm.new(24, 80)
 
 term:write '\27[2;3Hhello\27[1;31m!'
@@ -57,166 +78,267 @@ term:cell(1, 7).bold  --> true
 term:cell(1, 7).fg    --> 1   (red, in the palette of 256 colors)
 ```
 
-Rows and columns are numbered from 0, like the arguments of curses, and a
-position that is off the screen is an error.
+Rows and columns are numbered from 0, like the arguments of curses. Asking
+about a position that is not on the screen is an error.
 
-| Method                       | What it gives                                  |
+| Method                       | What it does                                   |
 | ---------------------------- | ---------------------------------------------- |
-| `term:write(bytes)`          | feeds the terminal, and returns it             |
-| `term:text(row, col, n)`     | `n` columns of text from a row, a space for each empty cell |
-| `term:row(row)`              | one whole row, as wide as the screen           |
-| `term:lines()`               | every row, from the top                        |
-| `term:cell(row, col)`        | the text, width and attributes of one cell     |
-| `term:cursor()`              | the row and column of the cursor               |
-| `term:size()`                | the height and width                           |
+| `term:write(bytes)`          | feeds the virtual terminal, and returns itself |
+| `term:text(row, col, n)`     | returns `n` columns of text from a row, with spaces for each empty cell |
+| `term:row(row)`              | returns one whole row, as wide as the screen   |
+| `term:lines()`               | returns every row, from the top                |
+| `term:cell(row, col)`        | returns the text, width and attributes of one cell |
+| `term:cursor()`              | returns the row and column of the cursor       |
+| `term:size()`                | returns the height and width                   |
 | `term:resize(rows, cols)`    | changes the size, and returns the terminal     |
-| `term:reset(hard)`           | back to the initial state, forgetting the screen unless `hard` is `false` |
+| `term:reset(hard)`           | returns to the initial state, and forgets the screen unless `hard` is `false` |
 
-A cell has the fields `text`, `width` (1, or 2 for a wide character),
-`bold`, `italic`, `blink`, `reverse`, `conceal` and `strike`, `underline`
-(0 for none, 1 single, 2 double, 3 curly), and `fg` and `bg`, each `nil`
-for the default color, an index into the palette of 256 colors, or a table
-of `red`, `green` and `blue`.
+A cell is a table with these fields:
+
+ * `text` is the character, and `width` is 1, or 2 for a wide character.
+ * `bold`, `italic`, `blink`, `reverse`, `conceal` and `strike` are booleans.
+ * `underline` is 0 for none, 1 for single, 2 for double, and 3 for curly.
+ * `fg` and `bg` are the colors. Each is `nil` for the default color, a
+   number for an index into the palette of 256 colors, or a table with the
+   fields `red`, `green` and `blue`.
 
 
-## 3. Scrollback
+## 3. Scrollback and the alternate screen
 
-A terminal keeps the lines that scroll off the top of the main screen, as many of
-them as there is memory for, unless it was told how many to keep:
+When a line scrolls off the top of the main screen, the terminal retains it.
+By default it keeps as many lines as there is memory for. To keep fewer, declare
+how many when you create the terminal:
 
 ```lua
 local term = lvterm.new(24, 80, {scrollback = 10000})
 
 term:scrollback_size()       --> how many lines have scrolled off
-term:scrollback_line(1)      --> the cells of the newest, as a list
+term:scrollback_line(1)      --> the cells of the newest line, as a list
 term:scrollback_line(1)[1].text
 ```
 
-The newest line is number 1, and the oldest is `term:scrollback_size()`.  A line is a
-list of cells, one for each column that the screen had when the line scrolled
-off, of the kind that `term:cell` gives, with the colors and attributes that
-the cells had.  Trailing blank cells are not kept in memory, but are there when the line is
-read.  `scrollback = 0` keeps nothing.  A line that is not in the scrollback is an error.
+`scrollback = 0` keeps nothing.
 
-Lines scroll back only from the whole of the main screen: the alternate screen
-that full-screen programs switch to does not, and nor does a scroll of part of the screen.
-When a terminal is made smaller the lines that go are added to the scrollback, and when
-it is made larger the newest lines are taken from it again, cut or padded to the new
-width.  `term:scrollback_clear()` forgets the lines, as a program does with `\27[3J`.
+The newest line is number 1, and the oldest is `term:scrollback_size()`.
+Requesting a line that is not there is an error. A line is a list with one
+cell for each column that the screen had when the line scrolled off, and each
+cell is the same kind that `term:cell` gives, including all the colors and
+attributes that it had. Blank cells at the end of a line are not kept in memory,
+but they are returned when you read that line back.
 
-| Method                       | What it gives                                  |
-| ---------------------------- | ---------------------------------------------- |
-| `term:scrollback_size()`     | how many lines are in the scrollback           |
-| `term:scrollback_line(n)`    | the cells of the nth line, from the newest     |
-| `term:scrollback_clear()`    | forgets the lines, and returns the terminal    |
-| `term:altscreen()`           | whether the program is on the alternate screen |
-| `term:cursor_visible()`      | `false` after the program hid the cursor       |
+Only the main screen scrolls back. The alternate screen, which full-screen
+programs switch to, does not, and neither does a scroll of only part of the
+alternate screen. When you make the terminal smaller, the lines that no longer
+fit vertically are added to the scrollback, and when you make it larger, the
+newest lines are taken back from the scrollback and cut or padded to the new
+width. `term:scrollback_clear()` discards all of the scrollback lines (as a
+program does when `\27[3J` is written).
 
-libvterm 0.3 switches to the alternate screen for `\27[?1047h` and `\27[?1049h`, but not
-for `\27[?47h`, and a reset leaves a terminal on the alternate screen if it was there.  A
-program such as a viewer for a terminal uses `term:altscreen()` to decide whether
-to show the scrollback.
+A program that displays the virtual terminal screen, such as an editor with a
+terminal window, can request the properties it needs with:
+
+| Method                       | What it does                                    |
+| ---------------------------- | ----------------------------------------------- |
+| `term:scrollback_size()`     | how many lines are in the scrollback            |
+| `term:scrollback_line(n)`    | cells of the nth line (from the newest)         |
+| `term:scrollback_clear()`    | forget all lines, and return the terminal       |
+| `term:altscreen()`           | is the virtual terminal on the alternate screen |
+| `term:cursor_visible()`      | is the virtual terminal cursor visible          |
+
+Such a program uses `term:altscreen()` to decide whether to offer the
+scrollback, because there is none to show on the alternate screen.
+Even after a reset, a terminal that was on the alternate screen stays there.
+
+libvterm 0.3 switches to the alternate screen for `\27[?1047h` and
+`\27[?1049h`, but not for `\27[?47h`.
 
 
-## 4. Replies and keys
+## 4. Sending input to the program
 
-A terminal answers some of the sequences that it is given, such as a
-request for the position of the cursor.  `term:output()` takes the bytes
-that it has to send back to the program, which the terminal then forgets:
+If a calling program needs the position of the cursor, for example, the
+virtual terminal can answer that. `term:output()` returns all the bytes that
+are waiting to go back to the calling program, and then discards them:
 
 ```lua
-term:write '\27[6n'
-term:output()         --> '\27[2;9R'   (the 1-based row and column of the cursor)
+term:write '\27[6n'    -- the program asks where the cursor is
+term:output()          --> '\27[2;9R'   (the 1-based row and column)
 ```
 
-To test a program that asks its terminal questions, write what the program
-sends to the terminal, and send what `term:output()` returns to the program.
+To write a program that asks its terminal questions, `term:write()` what
+sequences the program sends to the terminal, and give back to the program
+what `term:output()` returns.
 
-What the terminal sends for the keys that are typed to it is in the same bytes,
-which depend on the modes that the program has set, such as whether the cursor
-keys are for an application:
+The same bytes carry what the user types. `term:key` returns what a key sends,
+and the answer depends on the modes that the program has set, such as whether
+the application cursor keys are configured for an application:
 
 ```lua
 term:key 'up'
 term:output()                   --> '\27[A'
-term:write '\27[?1h'            -- the program asks for application cursor keys
+term:set_mode('application_cursor_keys', true)  -- the program asks for them
 term:key 'up'
 term:output()                   --> '\27OA'
 term:key('up', {ctrl = true})
 term:output()                   --> '\27[1;5A'
-term:char(0x4e2d)               -- a character, as UTF-8
-term:paste 'text'               -- the text, between the marks that the program asked for
+term:char(0x4e2d)               -- a character, sent as UTF-8
+term:paste 'text'               -- some text, pasted
 ```
 
-The keys are `enter`, `tab`, `backspace`, `escape`, `up`, `down`, `left`, `right`, `insert`,
-`delete`, `home`, `end`, `pageup`, `pagedown` and `f1` to `f12`, and the modifiers
-are the fields `shift`, `alt` and `ctrl` of a table.  A key that is not one of those
-is an error.  `term:paste` sends the text as it is, which may be any bytes, and
-puts the marks of bracketed paste before and after it only if the program set that mode,
-with `\27[?2004h`.  All of them return the terminal, and what they send is taken with
-`term:output()`, in the order that it was made, along with the replies.
+Application cursor keys are a mode that the program turns on by writing
+`\27[?1h`. libvterm has no call for it, so `term:set_mode` writes the sequence
+that the program would, as it does for the other modes that libvterm has no
+call for (see section 5).
+
+The key names are `enter`, `tab`, `backspace`, `escape`, `up`, `down`,
+`left`, `right`, `insert`, `delete`, `home`, `end`, `pageup`, `pagedown`,
+and `f1` through `f12`. Any other name is an error.
+
+The modifiers are the fields `shift`, `alt` and `ctrl` in a table as shown
+above.
+
+`term:paste` sends the text exactly as it is, and the text may be any bytes.
+If the program asked for bracketed paste, the text is sent between the marks
+that tell the program where the paste starts and ends. Section 5 shows an
+example.
+
+`key`, `char` and `paste` all return the terminal instance. The sequences
+they send back are queued for `term:output()`, in the order they were
+requested, together with any replies.
 
 
-## 5. The mouse, the title and the bell
+## 5. What the program asks for
 
-A program requests reports for mouse events with a terminal escape sequence:
-`\27[?1000h` for clicks, `\27[?1002h` for moves while a button is down, and
-`\27[?1003h` for every move, and says how to write them, such as `\27[?1006h`.
-`term:mouse_mode()` is what it asked for, `'none'`, `'click'`, `'drag'` or
-`'move'`, and a reset sets it back to `'none'`.  What the program is told is
-taken with `term:output()`, as for a key, and is nothing until it asks:
+A program can ask the terminal about more than just responses to keys, by
+writing an escape sequence, and from then on the terminal reports the events
+that it asked for. This section covers each kind of request, and then the two
+things that a program knows about itself: its title, and the bell.
+
+### The mouse
+
+A program can subscribe to various mouse events with the following
+sequences:
+
+| Mode    | Sequence     | What the program is told                       |
+| ------- | ------------ | ---------------------------------------------- |
+| `click` | `\27[?1000h` | presses and releases                           |
+| `drag`  | `\27[?1002h` | the same, and moves while a button is down     |
+| `move`  | `\27[?1003h` | the same, and every move                       |
+
+`term:mouse_mode()` remembers which events the program is subscribed to,
+or `'none'` after a reset.
+
+A test that stands in for the program does not have to write those sequences.
+`term:set_termprop('mouse', mode)` wraps libvterm's `vterm_state_set_termprop`,
+and subscribes to the mode as the program would have.
+
+Once the program has subscribed, you send mouse events to the virtual
+terminal, and it queues responses for the next `term:output()` call.
+For example to set the mouse pointer coordinates, followed by a left
+mouse button click:
 
 ```lua
-term:write '\27[?1000h\27[?1006h'   -- the program asks for clicks, in the SGR form
-term:mouse_move(2, 3)                -- the mouse is over row 2 and column 3, from 0
+term:set_termprop('mouse', 'click')  -- the program asks for presses and releases
+term:mouse_move(2, 3)                -- the mouse is over row 2 and column 3
 term:mouse_button('left', true)      -- a press, where the mouse is
-term:output()                        --> '\27[<0;4;3M'   (1-based, and `m` for the release)
-term:mouse_button('wheelup', true, {ctrl = true})
+term:output()                        --> '\27[M $#'
 ```
 
-The buttons are `left`, `middle`, `right`, `wheelup`, `wheeldown`, `wheelleft` and
-`wheelright`, and the modifiers are as for a key.  A wheel has no release.
-A place that is not on the screen, and a button that is not one of those, are errors.
-libvterm keeps which buttons are down even when the program has not asked to be
-told, so a press of a button that is down already is not sent again.
+The buttons are `left`, `middle`, `right`, `wheelup`, `wheeldown`,
+`wheelleft` and `wheelright`. A wheel turn has no release event. The modifiers
+are the same as for a key, and a position that is not on the screen is an error.
+Until the program has written some events into the virtual terminal, nothing is
+output back. libvterm also remembers which buttons are down, even when the program
+has not asked, so pressing a button that is already down is ignored.
 
-`term:title()` is the title that the program set, with `\27]0;title\7` or
-`\27]2;title\7`, or `nil` if it did not, and is only a title when all of it
-has been written, so that one that is half written is not it.  `term:bells()` is how
-many times the program rang the bell, `\7`, since it was last asked, and forgets them.
+Unless the program asks for another form, the reports are written in the old
+X10 form, which can only name positions a short way across and down. A program
+that wants the SGR form, which has no limit on the size of the screen, writes
+`\27[?1006h`. libvterm has no suitable api call to choose the form, so
+`term:set_mode('mouse_encoding', form)` writes the sequence for you. The forms
+are `x10`, `utf8`, `sgr` and `urxvt`, and the last one that was set is used:
 
-| Method                                   | What it does                                          |
-|------------------------------------------|-------------------------------------------------------|
-| `term:mouse_mode()`                      | what the program asked to be told of the mouse        |
-| `term:mouse_move(row, col, mods)`        | moves the mouse, and returns the terminal             |
-| `term:mouse_button(button, pressed, mods)` | presses or releases a button, and returns the terminal |
-| `term:title()`                           | the title that the program set, or `nil`              |
-| `term:bells()`                           | how many bells there were since it was last asked     |
+```lua
+local term = lvterm.new(24, 80)
+term:set_termprop('mouse', 'click')
+term:set_mode('mouse_encoding', 'sgr')  -- the program asks for the SGR form
+term:mouse_move(2, 3)
+term:mouse_button('left', true)
+term:output()                        --> '\27[<0;4;3M'   (1-based; `m` ends it for a release)
+```
+
+### The focus
+
+A program can also subscribe to focus events with `\27[?1004h`.
+`term:focus_reporting()` reports whether it has subscribed.
+When the window that shows the terminal gains or loses the focus, tell the
+terminal, and it sends the program the report if subscribed:
+
+```lua
+term:set_termprop('focusreport', true)   -- the same as the program writing \27[?1004h
+term:focus_in()
+term:output()                            --> '\27[I'
+term:focus_out()
+term:output()                            --> '\27[O'
+```
+
+### Bracketed paste
+
+A program that asks for bracketed paste with `\27[?2004h` gets pasted text
+between two marks, so that it can tell a huge paste event from actual typing.
+Then `term:paste` adds the marks, and without the request it sends the text
+alone. libvterm has no call to turn this mode on, so the program writes the
+sequence, and a test that stands in for it uses `term:set_mode`:
+
+```lua
+term:set_mode('bracketed_paste', true)
+term:paste 'hi'
+term:output()                   --> '\27[200~hi\27[201~'
+```
+
+### The title and the bell
+
+A program sets the title of its window by writing `\27]0;title\7` or
+`\27]2;title\7`. `term:title()` is the last title that was complete, or `nil`
+if there has been none. A title that is only half written is not a title yet.
+The program rings the bell by writing `\7`, and `term:bells()` says how many
+times it rang since you last asked, and then starts counting again from none.
+
+| Method                                     | What it does                                  |
+| ------------------------------------------ | --------------------------------------------- |
+| `term:mouse_mode()`                        | what mouse events are subscribed to?          |
+| `term:mouse_move(row, col, mods)`          | moves the mouse, and returns the terminal     |
+| `term:mouse_button(button, pressed, mods)` | presses or releases a button                  |
+| `term:focus_reporting()`                   | are focus events subscribed to?               |
+| `term:focus_in()`, `term:focus_out()`      | tell the virtual terminal that focus was gained or lost |
+| `term:set_termprop(name, value)`           | sets `'mouse'` or `'focusreport'` as the program would |
+| `term:set_mode(name, value)`               | sets `'bracketed_paste'`, `'application_cursor_keys'` or `'mouse_encoding'` as the program would |
+| `term:title()`                             | the title that the program set, or `nil` |
+| `term:bells()`                             | how many times did the bell ring since prior call |
 
 
 ## 6. Backends
 
-libvterm emulates the terminal, called directly through the FFI of LuaJIT
-where there is one (the `ffi` backend), and otherwise through a thin C
-binding (the `core` backend), so lvterm works on Lua 5.1 to 5.5 and LuaJIT.
-Both make terminals that behave the same, which the specs check by
-comparing one with the other.
+libvterm does the work of emulating the terminal. Lvterm reaches it in one of
+two backends. Where there is a LuaJIT FFI, the `ffi` backend calls libvterm
+directly. Everywhere else, the `core` backend calls it through a thin C binding,
+so lvterm works well on Lua 5.1 to 5.5 and on LuaJIT. Both backends behave the
+same.
 
-`lvterm.backend` is the name of the backend in use.  To test with a
-particular backend, set the environment variable `LVTERM_BACKEND` to `ffi`
-or `core`: lvterm then uses that one, or fails, and never falls back to the
-other.
+`lvterm.backend` is the name of the backend in use. To test with a particular
+backend, set the environment variable `LVTERM_BACKEND` to `ffi` or `core`.
+Lvterm then uses that one, or fails, and never falls back to the other.
 
-The `ffi` backend of LuaJIT declares its C types in the one namespace of
-the process, so a program cannot load two copies of it.  A program that
-needs two copies of lvterm in one process, such as a test runner that has
-a copy for itself and tests a copy of lvterm in the tree it runs in, should
-use the `core` backend.
+The `ffi` backend declares its C types in the one namespace that LuaJIT has
+for the whole process, so a program cannot load two copies of it. A program
+that needs two copies of lvterm in one process should use the `core`
+backend, a test runner for example.
 
 
 [Lua]:      https://www.lua.org
 [LuaJIT]:   https://luajit.org
 [LuaRocks]: https://luarocks.org
 [luarocks-build-luke]: https://luarocks.org/modules/gvvaughan/luarocks-build-luke
+[std.strict]: https://github.com/lua-stdlib/strict
+[typecheck]: https://github.com/gvvaughan/typecheck
 [Lvterm]:   https://github.com/gvvaughan/lvterm
 [libvterm]: https://www.leonerd.org.uk/code/libvterm/
