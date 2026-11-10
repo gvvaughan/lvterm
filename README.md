@@ -4,8 +4,8 @@ lvterm
 Copyright (C) 2026 Gary V. Vaughan
 
 [![License](https://img.shields.io/:license-mit-blue.svg)](https://mit-license.org)
-[![workflow status](https://github.com/gvvaughan/lvterm/actions/workflows/spec.yml/badge.svg?branch=master)](https://github.com/gvvaughan/lvterm/actions)
-[![codecov.io](https://codecov.io/github/gvvaughan/lvterm/coverage.svg?branch=master)](https://codecov.io/github/gvvaughan/lvterm?branch=master)
+[![workflow status](https://github.com/gvvaughan/lvterm/actions/workflows/spec.yml/badge.svg?branch=release-v0.3)](https://github.com/gvvaughan/lvterm/actions)
+[![codecov.io](https://codecov.io/github/gvvaughan/lvterm/coverage.svg?branch=release-v0.3)](https://codecov.io/github/gvvaughan/lvterm?branch=release-v0.3)
 
 A virtual terminal for [Lua][]. It plays the part of a real terminal, so that
 you can test a program that draws on a terminal, or host one inside a program of

@@ -1,0 +1,996 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>lvterm 0.3 Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>lvterm 0.3</h1>
+
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Class_Terminal">Class Terminal </a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/lvterm.html">lvterm</a></li>
+  <li><a href="../modules/lvterm.ffi.html">lvterm.ffi</a></li>
+  <li><strong>lvterm.terminal</strong></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>lvterm.terminal</code></h1>
+<p>A virtual terminal, over the handle that a backend makes.</p>
+<p> A backend makes a handle, which has <code>write</code>, <code>resize</code>, <code>reset</code>, <code>cursor</code>,
+ <code>cell</code> and <code>output</code> methods, and nothing else, so that terminals made by
+ any backend behave the same.  The <code>Terminal</code> here checks positions, and
+ reads text, once, for all of them.</p>
+
+
+<h2><a href="#Class_Terminal">Class Terminal </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#terminal:altscreen">terminal:altscreen ()</a></td>
+	<td class="summary">Whether the program is on the alternate screen.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:bells">terminal:bells ()</a></td>
+	<td class="summary">Take how many times the program rang the bell.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:cell">terminal:cell (row, col)</a></td>
+	<td class="summary">What one cell of the screen shows.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:char">terminal:char (cp[, mods])</a></td>
+	<td class="summary">Type a character, as the terminal would send it to the program.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:cursor">terminal:cursor ()</a></td>
+	<td class="summary">Where the cursor is.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:cursor_visible">terminal:cursor_visible ()</a></td>
+	<td class="summary">Whether the program has the cursor shown.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:focus_in">terminal:focus_in ()</a></td>
+	<td class="summary">Tell the program that the terminal gained the focus, if it asked to be told.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:focus_out">terminal:focus_out ()</a></td>
+	<td class="summary">Tell the program that the terminal lost the focus, if it asked to be told.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:focus_reporting">terminal:focus_reporting ()</a></td>
+	<td class="summary">Whether the program asked to be told when the terminal gains or loses the focus.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:key">terminal:key (name[, mods])</a></td>
+	<td class="summary">Press a key, as the terminal would send it to the program.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:lines">terminal:lines ()</a></td>
+	<td class="summary">Every row of the screen.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:mouse_button">terminal:mouse_button (button, pressed[, mods])</a></td>
+	<td class="summary">Press or release a mouse button, as the terminal would tell the program.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:mouse_mode">terminal:mouse_mode ()</a></td>
+	<td class="summary">What the program asked to be told about the mouse.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:mouse_move">terminal:mouse_move (row, col[, mods])</a></td>
+	<td class="summary">Move the mouse, as the terminal would tell the program.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:new">terminal:new (handle, rows, cols)</a></td>
+	<td class="summary">Make a terminal over a handle.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:output">terminal:output ()</a></td>
+	<td class="summary">Take what the terminal has to send back to the program.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:paste">terminal:paste (text)</a></td>
+	<td class="summary">Paste text, as the terminal would send it to the program.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:reset">terminal:reset ([hard=true])</a></td>
+	<td class="summary">Return the terminal to its initial state.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:resize">terminal:resize (rows, cols)</a></td>
+	<td class="summary">Change the size of the terminal.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:row">terminal:row (row)</a></td>
+	<td class="summary">A whole row of the screen.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:scrollback_clear">terminal:scrollback_clear ()</a></td>
+	<td class="summary">Forget the scrollback.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:scrollback_line">terminal:scrollback_line (n)</a></td>
+	<td class="summary">A line that scrolled off the top of the screen.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:scrollback_size">terminal:scrollback_size ()</a></td>
+	<td class="summary">How many lines have scrolled off the top of the screen.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:set_mode">terminal:set_mode (name, value)</a></td>
+	<td class="summary">Set a mode that libvterm has no call for, as the program would, by writing the sequence that it writes.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:set_termprop">terminal:set_termprop (name, value)</a></td>
+	<td class="summary">Set a property of the terminal, as <code>vterm_state_set_termprop</code> does.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:size">terminal:size ()</a></td>
+	<td class="summary">The size of the terminal.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:text">terminal:text (row[, col=0[, n]])</a></td>
+	<td class="summary">Some of the text on the screen, from one row.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:title">terminal:title ()</a></td>
+	<td class="summary">The title that the program set.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#terminal:write">terminal:write (bytes)</a></td>
+	<td class="summary">Feed bytes to the terminal, as a program writes them.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header has-description"><a name="Class_Terminal"></a>Class Terminal </h2>
+
+          <div class="section-description">
+          A virtual terminal.
+ Rows and columns are numbered from 0, like the arguments of curses.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "terminal:altscreen"></a>
+    <strong>terminal:altscreen ()</strong>
+    </dt>
+    <dd>
+    Whether the program is on the alternate screen.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        true after it switched to it, and false after it switched back
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:bells"></a>
+    <strong>terminal:bells ()</strong>
+    </dt>
+    <dd>
+    Take how many times the program rang the bell.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">int</span></span>
+        the bells since the last call, which the terminal forgets
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:cell"></a>
+    <strong>terminal:cell (row, col)</strong>
+    </dt>
+    <dd>
+    What one cell of the screen shows.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">row</span>
+            <span class="types"><span class="type">int</span></span>
+         line to read, from 0
+        </li>
+        <li><span class="parameter">col</span>
+            <span class="types"><span class="type">int</span></span>
+         column to read, from 0
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.7">table</a></span>
+         fields <code>text</code> (the characters, a space when the cell is
+   empty, and the empty string for the right half of a wide character),
+   <code>width</code> (columns, 1 or 2), <code>bold</code>, <code>italic</code>, <code>blink</code>, <code>reverse</code>,
+   <code>conceal</code> and <code>strike</code> (booleans), <code>underline</code> (0 for none, 1 single,
+   2 double, 3 curly), and <code>fg</code> and <code>bg</code>, each <code>nil</code> for the default, an
+   index into the 256 color palette, or a table of <code>red</code>, <code>green</code> and
+   <code>blue</code>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:char"></a>
+    <strong>terminal:char (cp[, mods])</strong>
+    </dt>
+    <dd>
+    Type a character, as the terminal would send it to the program.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">cp</span>
+            <span class="types"><span class="type">int</span></span>
+         the code point of the character
+        </li>
+        <li><span class="parameter">mods</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.7">table</a></span>
+         which modifiers are held, <code>shift</code>, <code>alt</code> and <code>ctrl</code>
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:cursor"></a>
+    <strong>terminal:cursor ()</strong>
+    </dt>
+    <dd>
+    Where the cursor is.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">int</span></span>
+        row</li>
+        <li>
+           <span class="types"><span class="type">int</span></span>
+        column</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:cursor_visible"></a>
+    <strong>terminal:cursor_visible ()</strong>
+    </dt>
+    <dd>
+    Whether the program has the cursor shown.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        false after the program hid the cursor, and true after it showed it
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:focus_in"></a>
+    <strong>terminal:focus_in ()</strong>
+    </dt>
+    <dd>
+    Tell the program that the terminal gained the focus, if it asked to be told.
+ What is sent is taken with <code>output</code>.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:focus_out"></a>
+    <strong>terminal:focus_out ()</strong>
+    </dt>
+    <dd>
+    Tell the program that the terminal lost the focus, if it asked to be told.
+ What is sent is taken with <code>output</code>.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:focus_reporting"></a>
+    <strong>terminal:focus_reporting ()</strong>
+    </dt>
+    <dd>
+    Whether the program asked to be told when the terminal gains or loses the focus.
+ A program asks with <code>ESC [ ? 1004 h</code>, or <code>set_termprop</code> can for it, and
+ <code>focus_in</code> and <code>focus_out</code> send nothing until it has.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:key"></a>
+    <strong>terminal:key (name[, mods])</strong>
+    </dt>
+    <dd>
+    Press a key, as the terminal would send it to the program.
+ What is sent depends on the modes that the program has set, such as the
+ cursor keys, and is taken with <code>output</code>.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+         <code>enter</code>, <code>tab</code>, <code>backspace</code>, <code>escape</code>, <code>up</code>, <code>down</code>, <code>left</code>,
+   <code>right</code>, <code>insert</code>, <code>delete</code>, <code>home</code>, <code>end</code>, <code>pageup</code>, <code>pagedown</code>, or <code>f1</code> to <code>f12</code>
+        </li>
+        <li><span class="parameter">mods</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.7">table</a></span>
+         which modifiers are held, <code>shift</code>, <code>alt</code> and <code>ctrl</code>
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:lines"></a>
+    <strong>terminal:lines ()</strong>
+    </dt>
+    <dd>
+    Every row of the screen.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">{string,...}</a></span>
+        the rows, from the top
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:mouse_button"></a>
+    <strong>terminal:mouse_button (button, pressed[, mods])</strong>
+    </dt>
+    <dd>
+    Press or release a mouse button, as the terminal would tell the program.
+ The press or release happens where <code>mouse_move</code> last put the mouse, and the
+ program is told of it if it asked to hear about it.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">button</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+         <code>left</code>, <code>middle</code>, <code>right</code>, <code>wheelup</code>, <code>wheeldown</code>,
+   <code>wheelleft</code> or <code>wheelright</code>
+        </li>
+        <li><span class="parameter">pressed</span>
+            <span class="types"><span class="type">bool</span></span>
+         true for a press, and false for a release, which a wheel does not have
+        </li>
+        <li><span class="parameter">mods</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.7">table</a></span>
+         which modifiers are held, <code>shift</code>, <code>alt</code> and <code>ctrl</code>
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:mouse_mode"></a>
+    <strong>terminal:mouse_mode ()</strong>
+    </dt>
+    <dd>
+    What the program asked to be told about the mouse.
+ A program asks with a sequence such as <code>ESC [ ? 1000 h</code>, and until it does,
+ <code>mouse_move</code> and <code>mouse_button</code> send nothing.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+        <code>none</code>, <code>click</code> for presses and releases, <code>drag</code> for those
+   and moves while a button is down, or <code>move</code> for those and all moves
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:mouse_move"></a>
+    <strong>terminal:mouse_move (row, col[, mods])</strong>
+    </dt>
+    <dd>
+    Move the mouse, as the terminal would tell the program.
+ What is sent depends on what the program asked to hear, which <code>mouse_mode</code>
+ says, and on how it asked for the reports to be written. Take it with <code>output</code>.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">row</span>
+            <span class="types"><span class="type">int</span></span>
+         line that the mouse is over, from 0
+        </li>
+        <li><span class="parameter">col</span>
+            <span class="types"><span class="type">int</span></span>
+         column that the mouse is over, from 0
+        </li>
+        <li><span class="parameter">mods</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.7">table</a></span>
+         which modifiers are held, <code>shift</code>, <code>alt</code> and <code>ctrl</code>
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:new"></a>
+    <strong>terminal:new (handle, rows, cols)</strong>
+    </dt>
+    <dd>
+    Make a terminal over a handle.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">handle</span>
+         what a backend made, for the given size
+        </li>
+        <li><span class="parameter">rows</span>
+            <span class="types"><span class="type">int</span></span>
+         height in lines
+        </li>
+        <li><span class="parameter">cols</span>
+            <span class="types"><span class="type">int</span></span>
+         width in columns
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:output"></a>
+    <strong>terminal:output ()</strong>
+    </dt>
+    <dd>
+    Take what the terminal has to send back to the program.
+ A terminal answers some of the sequences that it is given, such as a
+ request for the position of the cursor, and <code>key</code>, <code>char</code>, <code>paste</code>, <code>mouse_move</code>
+ and <code>mouse_button</code> events that the program is sent.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+        the bytes, which the terminal forgets
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:paste"></a>
+    <strong>terminal:paste (text)</strong>
+    </dt>
+    <dd>
+    Paste text, as the terminal would send it to the program.
+ The text is sent as it is, between the marks that tell the program where
+ a paste starts and ends if the program asked for them.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">text</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+         what is pasted, which may be any bytes
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:reset"></a>
+    <strong>terminal:reset ([hard=true])</strong>
+    </dt>
+    <dd>
+    Return the terminal to its initial state.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">hard</span>
+            <span class="types"><span class="type">bool</span></span>
+         also forget the contents of the screen
+         (<em>default</em> true)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:resize"></a>
+    <strong>terminal:resize (rows, cols)</strong>
+    </dt>
+    <dd>
+    Change the size of the terminal.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">rows</span>
+            <span class="types"><span class="type">int</span></span>
+         new height in lines
+        </li>
+        <li><span class="parameter">cols</span>
+            <span class="types"><span class="type">int</span></span>
+         new width in columns
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:row"></a>
+    <strong>terminal:row (row)</strong>
+    </dt>
+    <dd>
+    A whole row of the screen.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">row</span>
+            <span class="types"><span class="type">int</span></span>
+         line to read, from 0
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+        the text, as wide as the screen
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:scrollback_clear"></a>
+    <strong>terminal:scrollback_clear ()</strong>
+    </dt>
+    <dd>
+    Forget the scrollback.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:scrollback_line"></a>
+    <strong>terminal:scrollback_line (n)</strong>
+    </dt>
+    <dd>
+    A line that scrolled off the top of the screen.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">n</span>
+            <span class="types"><span class="type">int</span></span>
+         which line, from 1 for the newest to <code>scrollback_size</code> for the oldest
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.7">{table,...}</a></span>
+        a cell for each column of the line as it was, of the
+   kind that <code>cell</code> gives
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:scrollback_size"></a>
+    <strong>terminal:scrollback_size ()</strong>
+    </dt>
+    <dd>
+    How many lines have scrolled off the top of the screen.
+ Only the main screen scrolls back: the alternate screen does not.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">int</span></span>
+        the number of lines in the scrollback
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:set_mode"></a>
+    <strong>terminal:set_mode (name, value)</strong>
+    </dt>
+    <dd>
+    Set a mode that libvterm has no call for, as the program would, by writing the sequence that it writes.
+ Unlike <code>set_termprop</code>, which wraps a call of libvterm, this is only for a test that stands in for the
+ program not to write the sequences.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+         <code>bracketed_paste</code> or <code>application_cursor_keys</code>, with a value of true or false, or
+   <code>mouse_encoding</code>, with a value of <code>x10</code>, <code>utf8</code>, <code>sgr</code> or <code>urxvt</code> for how the reports of the
+   mouse are written, which is <code>x10</code> until it is set
+        </li>
+        <li><span class="parameter">value</span>
+         the value of the mode
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:set_termprop"></a>
+    <strong>terminal:set_termprop (name, value)</strong>
+    </dt>
+    <dd>
+    Set a property of the terminal, as <code>vterm_state_set_termprop</code> does.
+ A program sets properties with the sequences that it writes, and this sets them
+ as the program would have, which saves a test that stands in for the program from writing them.
+ Only the properties for what the program is told are supported so far.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+         <code>mouse</code>, with a value of <code>none</code>, <code>click</code>, <code>drag</code> or <code>move</code>, as <code>mouse_mode</code>
+   gives, or <code>focusreport</code>, with a value of true or false
+        </li>
+        <li><span class="parameter">value</span>
+         the value of the property
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:size"></a>
+    <strong>terminal:size ()</strong>
+    </dt>
+    <dd>
+    The size of the terminal.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">int</span></span>
+        height in lines</li>
+        <li>
+           <span class="types"><span class="type">int</span></span>
+        width in columns</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:text"></a>
+    <strong>terminal:text (row[, col=0[, n]])</strong>
+    </dt>
+    <dd>
+    Some of the text on the screen, from one row.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">row</span>
+            <span class="types"><span class="type">int</span></span>
+         line to read, from 0
+        </li>
+        <li><span class="parameter">col</span>
+            <span class="types"><span class="type">int</span></span>
+         first column to read, from 0
+         (<em>default</em> 0)
+        </li>
+        <li><span class="parameter">n</span>
+            <span class="types"><span class="type">int</span></span>
+         how many columns to read, to the end of the line by default
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+        the text, a space for each empty cell, and so exactly
+   as wide as the columns that it was asked for
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:title"></a>
+    <strong>terminal:title ()</strong>
+    </dt>
+    <dd>
+    The title that the program set.
+ A program sets the title with <code>ESC ] 0 ; title BEL</code> or <code>ESC ] 2 ; title BEL</code>.
+ The title is the last complete one: a title that is still being written does
+ not count yet.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a> or <span class="type">nil</span></span>
+        the title, which is nil if the program has not set one
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "terminal:write"></a>
+    <strong>terminal:write (bytes)</strong>
+    </dt>
+    <dd>
+    Feed bytes to the terminal, as a program writes them.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">bytes</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.5/manual.html#6.5">string</a></span>
+         what the terminal receives
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lvterm.terminal.html#Terminal">Terminal</a></span>
+        the terminal
+    </ol>
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/lunarmodules/ldoc">LDoc 1.5.0</a></i>
+<i style="float:right;">Last updated 2026-11-10 16:41:36 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>
