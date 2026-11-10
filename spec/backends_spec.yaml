@@ -29,3 +29,23 @@ specify the backends:
       expect(differences(noise(3000), 24, 80)).to_equal {}
       expect(differences(noise(3000), 7, 13)).to_equal {}
       expect(differences(noise(3000), 1, 5)).to_equal {}
+  - it scrollback, and what it gives back when the terminal is resized:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('a\27[31mb\27[0m\r\n\228\184\173c\r\nd\r\ne\r\nf\r\ng', 4, 6, 'x\r\ny', {2, 4})).to_equal {}
+      expect(differences('a\r\nb\r\nc\r\nd\r\ne', 3, 6, '\r\nf', {5, 6})).to_equal {}
+      expect(differences('a\r\nb\r\nc\r\nd\27[3J\r\ne', 2, 6)).to_equal {}
+  - it the alternate screen, which has no scrollback, and the cursor being hidden:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('a\r\nb\r\nc\27[?1049h\27[?25lx\r\ny\r\nz\r\nw', 2, 6)).to_equal {}
+      expect(differences('a\r\nb\r\nc\27[?1049h\27[?25lx\27[?1049l\27[?25h', 2, 6)).to_equal {}
+
+- describe agree on what is sent for input:
+  - it every key with every modifier, and every character, and a paste:
+      if not both_backends then pending 'needs both backends' end
+      expect(input_differences '').to_equal {}
+  - it the same, with the cursor keys that the program asked for:
+      if not both_backends then pending 'needs both backends' end
+      expect(input_differences '\27[?1h').to_equal {}
+  - it the same, with a paste that is bracketed:
+      if not both_backends then pending 'needs both backends' end
+      expect(input_differences '\27[?2004h').to_equal {}

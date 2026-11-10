@@ -1,6 +1,31 @@
 before:
   lvterm = require 'lvterm'
 
+  -- The text of a line of the scrollback.
+  function scrolled(term, n)
+     local out = {}
+     for i, cell in ipairs(term:scrollback_line(n)) do
+        out[i] = cell.text
+     end
+     return table.concat(out)
+  end
+
+  -- What the terminal sends for one key, one character, or a paste, which it then forgets.
+  function keys(term, name, mods)
+     term:key(name, mods)
+     return term:output()
+  end
+
+  function chars(term, cp, mods)
+     term:char(cp, mods)
+     return term:output()
+  end
+
+  function pastes(term, text)
+     term:paste(text)
+     return term:output()
+  end
+
 specify lvterm:
 - describe the backend:
   - it is one that exists:
@@ -20,6 +45,10 @@ specify lvterm:
   - it diagnoses a size that is not positive:
       expect(lvterm.new(0, 80)).to_raise 'positive rows and columns'
       expect(lvterm.new(24, 0)).to_raise 'positive rows and columns'
+  - it diagnoses a scrollback that is not a number of lines:
+      expect(lvterm.new(2, 4, {scrollback = -1})).to_raise 'number of lines'
+      expect(lvterm.new(2, 4, {scrollback = 1.5})).to_raise 'number of lines'
+      expect(lvterm.new(2, 4, {scrollback = 'all'})).to_raise 'number of lines'
   - it starts with an empty screen and the cursor at the top left:
       term = lvterm.new(3, 4)
       expect(term:lines()).to_equal {'    ', '    ', '    '}
@@ -187,3 +216,286 @@ specify lvterm:
       term = lvterm.new(5, 20)
       term:write 'hello'
       expect(term:output()).to_be ''
+
+- describe scrollback:
+  - it has no lines to start with:
+      term = lvterm.new(2, 4)
+      expect(term:scrollback_size()).to_be(0)
+  - it has the lines that scrolled off the top, the newest first:
+      term = lvterm.new(2, 4)
+      term:write 'a\r\nb\r\nc\r\nd'
+      expect(term:lines()).to_equal {'c   ', 'd   '}
+      expect(term:scrollback_size()).to_be(2)
+      expect(scrolled(term, 1)).to_be 'b   '
+      expect(scrolled(term, 2)).to_be 'a   '
+  - it has a cell for each column of the line as it was:
+      term = lvterm.new(2, 4)
+      term:write 'ab\r\ncd\r\nef'
+      expect(#term:scrollback_line(1)).to_be(4)
+      expect(term:scrollback_line(1)[1].text).to_be 'a'
+      expect(term:scrollback_line(1)[3].text).to_be ' '
+  - it has cells like those of the screen, with the colors and attributes that they had:
+      term = lvterm.new(2, 4)
+      term:write '\27[1;31mx\27[0m\27[38;2;1;2;3my\r\n\r\n'
+      cell = term:scrollback_line(1)[1]
+      expect(cell.text).to_be 'x'
+      expect(cell.bold).to_be(true)
+      expect(cell.fg).to_be(1)
+      expect(term:scrollback_line(1)[2].fg).to_equal {red = 1, green = 2, blue = 3}
+      expect(term:scrollback_line(1)[3]).to_equal(term:cell(0, 3))
+  - it keeps a wide character with the cell that follows it:
+      term = lvterm.new(2, 4)
+      term:write '\228\184\173a\r\n\r\n'
+      expect(term:scrollback_line(1)[1].text).to_be '\228\184\173'
+      expect(term:scrollback_line(1)[1].width).to_be(2)
+      expect(term:scrollback_line(1)[2].text).to_be ''
+      expect(term:scrollback_line(1)[3].text).to_be 'a'
+  - it keeps the lines of a long run, and the oldest is the first:
+      term = lvterm.new(3, 12)
+      for i = 1, 500 do
+         term:write(string.format('line %d\r\n', i))
+      end
+      expect(term:scrollback_size()).to_be(498)
+      expect(scrolled(term, 498)).to_be(string.format('%-12s', 'line 1'))
+      expect(scrolled(term, 1)).to_be(string.format('%-12s', 'line 498'))
+  - it keeps no more lines than it was told to:
+      term = lvterm.new(2, 4, {scrollback = 3})
+      term:write 'a\r\nb\r\nc\r\nd\r\ne\r\nf'
+      expect(term:scrollback_size()).to_be(3)
+      expect(scrolled(term, 1)).to_be 'd   '
+      expect(scrolled(term, 3)).to_be 'b   '
+  - it keeps none if it was told to keep none:
+      term = lvterm.new(2, 4, {scrollback = 0})
+      term:write 'a\r\nb\r\nc\r\nd'
+      expect(term:scrollback_size()).to_be(0)
+      expect(term:lines()).to_equal {'c   ', 'd   '}
+  - it has as many lines as there is memory for if it was not told:
+      term = lvterm.new(2, 4)
+      for _ = 1, 2000 do
+         term:write 'x\r\n'
+      end
+      expect(term:scrollback_size()).to_be(2000 - 1)
+  - it diagnoses a line that is not there:
+      term = lvterm.new(2, 4)
+      term:write 'a\r\nb\r\nc'
+      expect(term:scrollback_line(0)).to_raise 'outside a scrollback of 1'
+      expect(term:scrollback_line(2)).to_raise 'outside a scrollback of 1'
+      expect(term:scrollback_line(1.5)).to_raise 'outside a scrollback of 1'
+  - it is forgotten by scrollback_clear:
+      term = lvterm.new(2, 4)
+      term:write 'a\r\nb\r\nc\r\nd'
+      expect(term:scrollback_clear()).to_be(term)
+      expect(term:scrollback_size()).to_be(0)
+      expect(term:lines()).to_equal {'c   ', 'd   '}
+  - it is forgotten when the program asks for the scrollback to be erased:
+      term = lvterm.new(2, 4)
+      term:write 'a\r\nb\r\nc\r\nd\27[3J'
+      expect(term:scrollback_size()).to_be(0)
+  - it is not made by the alternate screen, which does not scroll back:
+      term = lvterm.new(2, 4)
+      term:write 'a\r\nb\r\nc'
+      term:write '\27[?1049h'
+      for _ = 1, 10 do
+         term:write 'x\r\n'
+      end
+      expect(term:scrollback_size()).to_be(1)
+      term:write '\27[?1049l'
+      expect(term:scrollback_size()).to_be(1)
+      expect(scrolled(term, 1)).to_be 'a   '
+  - it is not made by a scroll of part of the screen:
+      term = lvterm.new(4, 4)
+      term:write '\27[2;3r\27[2;1Ha\r\nb\r\nc\r\nd'
+      expect(term:scrollback_size()).to_be(0)
+  - it takes the lines that go when the terminal is made smaller:
+      term = lvterm.new(3, 4)
+      term:write 'a\r\nb\r\nc'
+      term:resize(2, 4)
+      expect(term:scrollback_size()).to_be(1)
+      expect(scrolled(term, 1)).to_be 'a   '
+      expect(term:lines()).to_equal {'b   ', 'c   '}
+  - it gives lines back when the terminal is made larger:
+      term = lvterm.new(3, 4)
+      term:write 'a\r\nb\r\nc\r\nd'
+      expect(term:scrollback_size()).to_be(1)
+      term:resize(4, 4)
+      expect(term:scrollback_size()).to_be(0)
+      expect(term:lines()).to_equal {'a   ', 'b   ', 'c   ', 'd   '}
+  - it cuts a line to the width that it is given back at:
+      term = lvterm.new(2, 6)
+      term:write 'abcdef\r\nxy\r\nz'
+      expect(term:scrollback_size()).to_be(1)
+      term:resize(2, 3)
+      term:resize(3, 3)
+      expect(term:scrollback_size()).to_be(0)
+      expect(term:row(0)).to_be 'abc'
+  - it does not give back half of a wide character that the width cuts in two:
+      term = lvterm.new(2, 4)
+      term:write 'ab\228\184\173\r\nxy\r\nz'
+      expect(scrolled(term, 1)).to_be 'ab\228\184\173'
+      term:resize(2, 3)
+      term:resize(3, 3)
+      expect(term:scrollback_size()).to_be(0)
+      expect(term:row(0)).to_be 'ab '
+  - it pads a line to the width that it is given back at:
+      term = lvterm.new(2, 3)
+      term:write 'abc\r\nde\r\nf'
+      term:resize(2, 6)
+      term:resize(3, 6)
+      expect(term:scrollback_size()).to_be(0)
+      expect(term:row(0)).to_be 'abc   '
+
+- describe altscreen:
+  - it is not on to start with:
+      term = lvterm.new(2, 4)
+      expect(term:altscreen()).to_be(false)
+  - it is on while the program is on the alternate screen:
+      term = lvterm.new(2, 4)
+      term:write '\27[?1049h'
+      expect(term:altscreen()).to_be(true)
+      term:write '\27[?1049l'
+      expect(term:altscreen()).to_be(false)
+  - it is on for the other sequence that switches to it, which has no screen of the main one saved:
+      term = lvterm.new(2, 4)
+      term:write 'ab\27[?1047h'
+      expect(term:altscreen()).to_be(true)
+      expect(term:row(0)).to_be '    '
+      term:write '\27[?1047l'
+      expect(term:altscreen()).to_be(false)
+      expect(term:row(0)).to_be 'ab  '
+  - it is not for a sequence that libvterm does not take to be a switch:
+      term = lvterm.new(2, 4)
+      term:write '\27[?47h'
+      expect(term:altscreen()).to_be(false)
+  - it is still on after a reset, as the screen is the alternate one, which the reset clears:
+      term = lvterm.new(2, 4)
+      term:write 'ab\27[?1049hcd'
+      term:reset(true)
+      expect(term:altscreen()).to_be(true)
+      expect(term:row(0)).to_be '    '
+      term:write '\27[?1049l'
+      expect(term:altscreen()).to_be(false)
+      expect(term:row(0)).to_be 'ab  '
+
+- describe cursor_visible:
+  - it is true to start with:
+      term = lvterm.new(2, 4)
+      expect(term:cursor_visible()).to_be(true)
+  - it follows the program hiding and showing the cursor:
+      term = lvterm.new(2, 4)
+      term:write '\27[?25l'
+      expect(term:cursor_visible()).to_be(false)
+      term:write '\27[?25h'
+      expect(term:cursor_visible()).to_be(true)
+  - it is true again after a hard reset:
+      term = lvterm.new(2, 4)
+      term:write '\27[?25l'
+      term:reset(true)
+      expect(term:cursor_visible()).to_be(true)
+
+- describe key:
+  - it sends the keys that are the same in every mode:
+      term = lvterm.new(2, 4)
+      expect(keys(term, 'enter')).to_be '\r'
+      expect(keys(term, 'tab')).to_be '\t'
+      expect(keys(term, 'backspace')).to_be '\127'
+      expect(keys(term, 'escape')).to_be '\27'
+  - it sends the arrows, with the cursor keys that the program asked for:
+      term = lvterm.new(2, 4)
+      expect(keys(term, 'up')).to_be '\27[A'
+      expect(keys(term, 'down')).to_be '\27[B'
+      expect(keys(term, 'right')).to_be '\27[C'
+      expect(keys(term, 'left')).to_be '\27[D'
+      term:write '\27[?1h'
+      expect(keys(term, 'up')).to_be '\27OA'
+      expect(keys(term, 'left')).to_be '\27OD'
+      term:write '\27[?1l'
+      expect(keys(term, 'up')).to_be '\27[A'
+  - it sends the editing keys:
+      term = lvterm.new(2, 4)
+      expect(keys(term, 'insert')).to_be '\27[2~'
+      expect(keys(term, 'delete')).to_be '\27[3~'
+      expect(keys(term, 'home')).to_be '\27[H'
+      expect(keys(term, 'end')).to_be '\27[F'
+      expect(keys(term, 'pageup')).to_be '\27[5~'
+      expect(keys(term, 'pagedown')).to_be '\27[6~'
+  - it sends the function keys:
+      term = lvterm.new(2, 4)
+      expect(keys(term, 'f1')).to_be '\27OP'
+      expect(keys(term, 'f4')).to_be '\27OS'
+      expect(keys(term, 'f5')).to_be '\27[15~'
+      expect(keys(term, 'f12')).to_be '\27[24~'
+  - it sends the modifiers that are held:
+      term = lvterm.new(2, 4)
+      expect(keys(term, 'up', {shift = true})).to_be '\27[1;2A'
+      expect(keys(term, 'up', {alt = true})).to_be '\27[1;3A'
+      expect(keys(term, 'up', {ctrl = true})).to_be '\27[1;5A'
+      expect(keys(term, 'up', {shift = true, ctrl = true})).to_be '\27[1;6A'
+      expect(keys(term, 'delete', {ctrl = true})).to_be '\27[3;5~'
+      expect(keys(term, 'tab', {shift = true})).to_be '\27[Z'
+  - it is no modifier for a modifier that is false:
+      term = lvterm.new(2, 4)
+      expect(keys(term, 'up', {shift = false, alt = false, ctrl = false})).to_be '\27[A'
+  - it returns the terminal, so calls can be chained:
+      term = lvterm.new(2, 4)
+      expect(term:key 'up').to_be(term)
+  - it is not a key that it does not have:
+      term = lvterm.new(2, 4)
+      expect(term:key 'f13').to_raise 'unknown key'
+      expect(term:key 'space').to_raise 'unknown key'
+      expect(term:key(nil)).to_raise 'unknown key'
+  - it is the reply that output takes, in the order that they were made:
+      term = lvterm.new(2, 4)
+      term:key 'up'
+      term:write '\27[6n'
+      term:key 'down'
+      expect(term:output()).to_be '\27[A\27[1;1R\27[B'
+
+- describe char:
+  - it sends the character:
+      term = lvterm.new(2, 4)
+      expect(chars(term, 97)).to_be 'a'
+      expect(chars(term, 0x20)).to_be ' '
+  - it sends a character as UTF-8:
+      term = lvterm.new(2, 4)
+      expect(chars(term, 0xe9)).to_be '\195\169'
+      expect(chars(term, 0x4e2d)).to_be '\228\184\173'
+      expect(chars(term, 0x1f600)).to_be '\240\159\152\128'
+  - it sends control characters for a held control:
+      term = lvterm.new(2, 4)
+      expect(chars(term, 97, {ctrl = true})).to_be '\1'
+      expect(chars(term, 0x5d, {ctrl = true})).to_be '\29'
+  - it sends escape before a character for a held alt:
+      term = lvterm.new(2, 4)
+      expect(chars(term, 97, {alt = true})).to_be '\27a'
+  - it returns the terminal, so calls can be chained:
+      term = lvterm.new(2, 4)
+      expect(term:char(97)).to_be(term)
+  - it diagnoses what is not a character:
+      term = lvterm.new(2, 4)
+      expect(term:char(-1)).to_raise 'not a character'
+      expect(term:char(0x110000)).to_raise 'not a character'
+      expect(term:char('a')).to_raise 'not a character'
+
+- describe paste:
+  - it sends the text as it is:
+      term = lvterm.new(2, 4)
+      expect(pastes(term, 'hello\nthere')).to_be 'hello\nthere'
+  - it sends bytes that are not text, and nothing else:
+      term = lvterm.new(2, 4)
+      expect(pastes(term, '\0\1\255\27')).to_be '\0\1\255\27'
+  - it puts the text between the marks that bracketed paste asked for:
+      term = lvterm.new(2, 4)
+      term:write '\27[?2004h'
+      expect(pastes(term, 'hi')).to_be '\27[200~hi\27[201~'
+      term:write '\27[?2004l'
+      expect(pastes(term, 'hi')).to_be 'hi'
+  - it is as long as the text is, whatever the size of a reply:
+      term = lvterm.new(2, 4)
+      text = string.rep('0123456789', 5000)
+      expect(pastes(term, text)).to_be(text)
+  - it returns the terminal, so calls can be chained:
+      term = lvterm.new(2, 4)
+      expect(term:paste 'x').to_be(term)
+  - it sends nothing for no text:
+      term = lvterm.new(2, 4)
+      expect(pastes(term, '')).to_be ''

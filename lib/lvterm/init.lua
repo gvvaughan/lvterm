@@ -56,14 +56,22 @@ end
 --- Make a new virtual terminal.
 -- @int[opt=24] rows height in lines
 -- @int[opt=80] cols width in columns
+-- @tparam[opt] table options `scrollback`, the most lines to keep of those
+--   that scroll off the top, which is as many as there is memory for if it
+--   is not given, and none if it is 0
 -- @treturn lvterm.terminal.Terminal
-function M.new(rows, cols)
+function M.new(rows, cols, options)
    rows, cols = rows or 24, cols or 80
    if rows < 1 or cols < 1 then
       error(string.format('a terminal needs positive rows and columns, not %d,%d',
                           rows, cols), 2)
    end
-   return terminal.new(M.handle(rows, cols), rows, cols)
+   local scrollback = options and options.scrollback
+   if scrollback ~= nil and (type(scrollback) ~= 'number' or scrollback < 0 or scrollback % 1 ~= 0) then
+      error(string.format('the scrollback of a terminal is a number of lines, not %s',
+                          tostring(scrollback)), 2)
+   end
+   return terminal.new(M.handle(rows, cols, options), rows, cols)
 end
 
 

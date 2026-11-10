@@ -87,6 +87,92 @@ function differences(stream, rows, cols, more, resize)
          end
       end
    end
+   if a:altscreen() ~= b:altscreen() then
+      diffs[#diffs + 1] = 'altscreen'
+   end
+   if a:cursor_visible() ~= b:cursor_visible() then
+      diffs[#diffs + 1] = 'cursor_visible'
+   end
+
+   if a:scrollback_size() ~= b:scrollback_size() then
+      diffs[#diffs + 1] = string.format('scrollback size %d against %d', a:scrollback_size(), b:scrollback_size())
+   else
+      for n = 1, a:scrollback_size() do
+         local x, y = a:scrollback_line(n), b:scrollback_line(n)
+         if #x ~= #y then
+            diffs[#diffs + 1] = string.format('scrollback %d width', n)
+         else
+            for col = 1, #x do
+               for _, field in ipairs(FIELDS) do
+                  if x[col][field] ~= y[col][field] then
+                     diffs[#diffs + 1] = string.format('scrollback %d,%d %s', n, col, field)
+                  end
+               end
+               for _, field in ipairs {'fg', 'bg'} do
+                  if not same_color(x[col][field], y[col][field]) then
+                     diffs[#diffs + 1] = string.format('scrollback %d,%d %s', n, col, field)
+                  end
+               end
+            end
+         end
+      end
+   end
+   return diffs
+end
+
+
+--- What the `ffi` and `core` backends send for the keys, characters and pastes.
+-- Each is made a terminal, fed the same bytes, and then asked for every
+-- key with every combination of modifiers, and some characters and pastes.
+-- @string stream what to write to both first, such as a mode to set
+-- @treturn {string,...} descriptions of the differences, none if the same
+function input_differences(stream)
+   local a = terminal.new(ffi_backend.new(5, 20), 5, 20)
+   local b = terminal.new(core_backend.new(5, 20), 5, 20)
+   a:write(stream)
+   b:write(stream)
+   a:output()
+   b:output()
+
+   local names = {'enter', 'tab', 'backspace', 'escape', 'up', 'down', 'left', 'right',
+                  'insert', 'delete', 'home', 'end', 'pageup', 'pagedown'}
+   for n = 1, 12 do
+      names[#names + 1] = 'f' .. n
+   end
+
+   local diffs = {}
+   for _, name in ipairs(names) do
+      for mask = 0, 7 do
+         local mods = {shift = mask % 2 == 1, alt = math.floor(mask / 2) % 2 == 1,
+                       ctrl = math.floor(mask / 4) % 2 == 1}
+         a:key(name, mods)
+         b:key(name, mods)
+         if a:output() ~= b:output() then
+            diffs[#diffs + 1] = string.format('key %s %d', name, mask)
+         end
+      end
+   end
+
+   for _, cp in ipairs {0x20, 0x41, 0x61, 0x7a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f, 0x69, 0x6a, 0x6d,
+                        0xe9, 0x4e2d, 0x1f600, 0x31, 0x40} do
+      for mask = 0, 7 do
+         local mods = {shift = mask % 2 == 1, alt = math.floor(mask / 2) % 2 == 1,
+                       ctrl = math.floor(mask / 4) % 2 == 1}
+         a:char(cp, mods)
+         b:char(cp, mods)
+         if a:output() ~= b:output() then
+            diffs[#diffs + 1] = string.format('char %x %d', cp, mask)
+         end
+      end
+   end
+
+   for _, text in ipairs {'', 'x', 'hello\nthere', '\0\255\27', string.rep('abcdefghij', 3000)} do
+      a:paste(text)
+      b:paste(text)
+      if a:output() ~= b:output() then
+         diffs[#diffs + 1] = string.format('paste of %d bytes', #text)
+      end
+   end
    return diffs
 end
 
