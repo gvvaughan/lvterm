@@ -52,6 +52,8 @@ is. If libvterm is not in a standard place, say where its `lib` directory is:
 The rock is built by [luarocks-build-luke][], which LuaRocks installs for
 you.
 
+`require 'lvterm'.version` says which version of lvterm is installed.
+
 ### Optional modules
 
 Lvterm checks the types of its arguments if [typecheck][] is installed, and if

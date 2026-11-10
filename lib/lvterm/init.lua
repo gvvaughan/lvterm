@@ -32,7 +32,9 @@ local _ENV = require 'lvterm._normalize'.strictness() {
    getenv = os.getenv,
    ipairs = ipairs,
    pcall = pcall,
+   rawset = rawset,
    require = require,
+   setmetatable = setmetatable,
    tostring = tostring,
    type = type,
 }
@@ -128,9 +130,28 @@ local function new(rows, cols, options)
 end
 
 
---- @export
-return {
+return setmetatable({
    backend = backend.name,
    handle = backend.new,
    new = argscheck('lvterm.new (<?int>, <?int>, <?table>)', new),
-}
+}, {
+   --- Metamethods
+   -- @section metamethods
+
+   --- Lazy loading of lvterm submodules.
+   -- Don't load everything on initial startup, wait until first attempt
+   -- to access a submodule, and then load it on demand.
+   -- @function __index
+   -- @string name submodule name
+   -- @treturn table|nil the submodule that was loaded to satisfy the missing
+   --    `name`, otherwise `nil` if nothing was found
+   -- @usage
+   --    local version = require 'lvterm'.version
+   __index = function(self, name)
+      local ok, t = pcall(require, 'lvterm.' .. name)
+      if ok then
+         rawset(self, name, t)
+         return t
+      end
+   end,
+})

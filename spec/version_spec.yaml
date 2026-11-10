@@ -1,0 +1,31 @@
+# Virtual terminal for Lua 5.1, 5.2, 5.3, 5.4 & 5.5
+# Copyright (C) 2026 Gary V. Vaughan
+
+before:
+  this_module = 'lvterm.version'
+
+  M = require(this_module)
+
+specify lvterm.version:
+- context when required:
+  - it returns a string:
+      expect(type(M)).to_be 'string'
+  - it does not touch the global table:
+      local env = setmetatable({}, {
+         __index = function(_, name) error('read the global ' .. name) end,
+         __newindex = function(_, name) error('set the global ' .. name) end,
+      })
+      local chunk = assert(loadfile(package.searchpath(this_module, package.path), 't', env))
+      local ok = pcall(chunk)
+      expect(ok).to_be(true)
+
+- describe version:
+  - it describes this module:
+      expect(M).to_match '^Virtual Terminal'
+  - it ends with the release number or the stamp of a development build:
+      expect(M).to_match.any_of {' %d[%.%d]*$', ' [%w_.-]+/%x+$'}
+
+- describe lvterm:
+  - context when the version is asked of it:
+    - it is the version of this module:
+        expect(require('lvterm').version).to_be(M)

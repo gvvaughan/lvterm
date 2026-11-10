@@ -8,6 +8,7 @@
 !/doc/lvterm.md
 /build-aux/config.ld
 /lib/lvterm/config.lua
+/lib/lvterm/version.lua
 /luacov.*.out
 /lvterm-*.tar.gz
 /TAGS
