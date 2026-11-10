@@ -52,6 +52,13 @@ is. If libvterm is not in a standard place, say where its `lib` directory is:
 The rock is built by [luarocks-build-luke][], which LuaRocks installs for
 you.
 
+### Optional modules
+
+Lvterm checks the types of its arguments if [typecheck][] is installed, and if
+[std.strict][] is installed, it makes its own modules declare every variable
+they use. You don't need either of them, and neither changes what lvterm does
+when you use it correctly.
+
 
 ## 2. Reading the screen
 
@@ -175,6 +182,10 @@ term:char(0x4e2d)               -- a character, sent as UTF-8
 term:paste 'text'               -- some text, pasted
 ```
 
+Application cursor keys are a mode that the program turns on by writing
+`\27[?1h`. libvterm has no call for it, so the example writes the sequence
+that the program would.
+
 The key names are `enter`, `tab`, `backspace`, `escape`, `up`, `down`,
 `left`, `right`, `insert`, `delete`, `home`, `end`, `pageup`, `pagedown`,
 and `f1` through `f12`. Any other name is an error.
@@ -213,10 +224,9 @@ sequences:
 `term:mouse_mode()` remembers which events the program is subscribed to,
 or `'none'` after a reset.
 
-The program can also choose how the reports are written, such as `\27[?1006h`
-for the SGR form, which has no limit on the size of the screen. Without that,
-reports use the older form, which can only name positions a short way across
-and down.
+A test that stands in for the program does not have to write those sequences.
+`term:set_termprop('mouse', mode)` wraps libvterm's `vterm_state_set_termprop`,
+and subscribes to the mode as the program would have.
 
 Once the program has subscribed, you send mouse events to the virtual
 terminal, and it queues responses for the next `term:output()` call.
@@ -224,10 +234,10 @@ For example to set the mouse pointer coordinates, followed by a left
 mouse button click:
 
 ```lua
-term:write '\27[?1000h\27[?1006h'   -- the program asks for clicks, in the SGR form
-term:mouse_move(2, 3)               -- the mouse is over row 2 and column 3
-term:mouse_button('left', true)     -- a press, where the mouse is
-term:output()                       --> '\27[<0;4;3M'   (1-based; `m` ends it for a release)
+term:set_termprop('mouse', 'click')  -- the program asks for presses and releases
+term:mouse_move(2, 3)                -- the mouse is over row 2 and column 3
+term:mouse_button('left', true)      -- a press, where the mouse is
+term:output()                        --> '\27[M $#'
 ```
 
 The buttons are `left`, `middle`, `right`, `wheelup`, `wheeldown`,
@@ -237,12 +247,20 @@ Until the program has written some events into the virtual terminal, nothing is
 output back. libvterm also remembers which buttons are down, even when the program
 has not asked, so pressing a button that is already down is ignored.
 
-A test that stands in for the program does not have to write the sequences
-for the mode. `term:set_termprop('mouse', mode)` wraps libvterm's
-`vterm_state_set_termprop`, and sets the mode as the program would have.
-It leaves the form of the reports alone, as libvterm has no suitable api
-call to set it.  That is, when a program wants the SGR form, it must write
-`\27[?1006h`.
+Unless the program asks for another form, the reports are written in the old
+X10 form, which can only name positions a short way across and down. A program
+that wants the SGR form, which has no limit on the size of the screen, writes
+`\27[?1006h`. libvterm has no suitable api call to choose the form, so a test
+writes the sequence too:
+
+```lua
+local term = lvterm.new(24, 80)
+term:set_termprop('mouse', 'click')
+term:write '\27[?1006h'              -- the program asks for the SGR form
+term:mouse_move(2, 3)
+term:mouse_button('left', true)
+term:output()                        --> '\27[<0;4;3M'   (1-based; `m` ends it for a release)
+```
 
 ### The focus
 
@@ -265,7 +283,7 @@ A program that asks for bracketed paste with `\27[?2004h` gets pasted text
 between two marks, so that it can tell a huge paste event from actual typing.
 Then `term:paste` adds the marks, and without the request it sends the text
 alone. libvterm has no call to turn this mode on, so the program writes the
-sequence:
+sequence, and so does a test that stands in for it:
 
 ```lua
 term:write '\27[?2004h'
@@ -315,5 +333,7 @@ backend, a test runner for example.
 [LuaJIT]:   https://luajit.org
 [LuaRocks]: https://luarocks.org
 [luarocks-build-luke]: https://luarocks.org/modules/gvvaughan/luarocks-build-luke
+[std.strict]: https://github.com/lua-stdlib/strict
+[typecheck]: https://github.com/gvvaughan/typecheck
 [Lvterm]:   https://github.com/gvvaughan/lvterm
 [libvterm]: https://www.leonerd.org.uk/code/libvterm/
