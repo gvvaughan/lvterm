@@ -4,6 +4,22 @@
 
 ### New Features
 
+  - lvterm can host a program as well as test one.  A terminal keeps
+    the lines that scroll off the top: `scrollback_size()`,
+    `scrollback_line(n)` (the newest is 1) and `scrollback_clear()`
+    read and forget them, and `lvterm.new(rows, cols, {scrollback = n})`
+    keeps at most `n` lines, and all of them if it is not given.  Lines
+    that a smaller terminal pushes off, and a larger one gets back, are
+    kept as a program would see them.
+
+  - `altscreen()` says whether the program is on the alternate screen,
+    and `cursor_visible()` whether it has the cursor shown.
+
+  - `key(name, mods)`, `char(cp, mods)` and `paste(text)` put into
+    `output()` what a terminal sends to the program for a key, a
+    character and a paste, as the modes that the program set, such as
+    application cursor keys and bracketed paste, say.
+
   - `mouse_mode()` returns mouse events requested by the program:
     `'none'`, `'click'`, `'drag'` or `'move'`.  `mouse_move(row, col, mods)`
     and `mouse_button(button, pressed, mods)` put into `output()` what a
