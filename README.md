@@ -4,8 +4,8 @@ lvterm
 Copyright (C) 2026 Gary V. Vaughan
 
 [![License](https://img.shields.io/:license-mit-blue.svg)](https://mit-license.org)
-[![workflow status](https://github.com/gvvaughan/lvterm/actions/workflows/spec.yml/badge.svg?branch=master)](https://github.com/gvvaughan/lvterm/actions)
-[![codecov.io](https://codecov.io/github/gvvaughan/lvterm/coverage.svg?branch=master)](https://codecov.io/github/gvvaughan/lvterm?branch=master)
+[![workflow status](https://github.com/gvvaughan/lvterm/actions/workflows/spec.yml/badge.svg?branch=release-v0.2)](https://github.com/gvvaughan/lvterm/actions)
+[![codecov.io](https://codecov.io/github/gvvaughan/lvterm/coverage.svg?branch=release-v0.2)](https://codecov.io/github/gvvaughan/lvterm?branch=release-v0.2)
 
 A virtual terminal for [Lua][], to test programs that draw on a terminal.
 Feed it the bytes that a program writes, and ask what the screen shows, and
