@@ -173,7 +173,7 @@ the application cursor keys are configured for an application:
 ```lua
 term:key 'up'
 term:output()                   --> '\27[A'
-term:write '\27[?1h'            -- the program asks for application cursor keys
+term:set_mode('application_cursor_keys', true)  -- the program asks for them
 term:key 'up'
 term:output()                   --> '\27OA'
 term:key('up', {ctrl = true})
@@ -183,8 +183,9 @@ term:paste 'text'               -- some text, pasted
 ```
 
 Application cursor keys are a mode that the program turns on by writing
-`\27[?1h`. libvterm has no call for it, so the example writes the sequence
-that the program would.
+`\27[?1h`. libvterm has no call for it, so `term:set_mode` writes the sequence
+that the program would, as it does for the other modes that libvterm has no
+call for (see section 5).
 
 The key names are `enter`, `tab`, `backspace`, `escape`, `up`, `down`,
 `left`, `right`, `insert`, `delete`, `home`, `end`, `pageup`, `pagedown`,
@@ -250,13 +251,14 @@ has not asked, so pressing a button that is already down is ignored.
 Unless the program asks for another form, the reports are written in the old
 X10 form, which can only name positions a short way across and down. A program
 that wants the SGR form, which has no limit on the size of the screen, writes
-`\27[?1006h`. libvterm has no suitable api call to choose the form, so a test
-writes the sequence too:
+`\27[?1006h`. libvterm has no suitable api call to choose the form, so
+`term:set_mode('mouse_encoding', form)` writes the sequence for you. The forms
+are `x10`, `utf8`, `sgr` and `urxvt`, and the last one that was set is used:
 
 ```lua
 local term = lvterm.new(24, 80)
 term:set_termprop('mouse', 'click')
-term:write '\27[?1006h'              -- the program asks for the SGR form
+term:set_mode('mouse_encoding', 'sgr')  -- the program asks for the SGR form
 term:mouse_move(2, 3)
 term:mouse_button('left', true)
 term:output()                        --> '\27[<0;4;3M'   (1-based; `m` ends it for a release)
@@ -283,10 +285,10 @@ A program that asks for bracketed paste with `\27[?2004h` gets pasted text
 between two marks, so that it can tell a huge paste event from actual typing.
 Then `term:paste` adds the marks, and without the request it sends the text
 alone. libvterm has no call to turn this mode on, so the program writes the
-sequence, and so does a test that stands in for it:
+sequence, and a test that stands in for it uses `term:set_mode`:
 
 ```lua
-term:write '\27[?2004h'
+term:set_mode('bracketed_paste', true)
 term:paste 'hi'
 term:output()                   --> '\27[200~hi\27[201~'
 ```
@@ -307,6 +309,7 @@ times it rang since you last asked, and then starts counting again from none.
 | `term:focus_reporting()`                   | are focus events subscribed to?               |
 | `term:focus_in()`, `term:focus_out()`      | tell the virtual terminal that focus was gained or lost |
 | `term:set_termprop(name, value)`           | sets `'mouse'` or `'focusreport'` as the program would |
+| `term:set_mode(name, value)`               | sets `'bracketed_paste'`, `'application_cursor_keys'` or `'mouse_encoding'` as the program would |
 | `term:title()`                             | the title that the program set, or `nil` |
 | `term:bells()`                             | how many times did the bell ring since prior call |
 
