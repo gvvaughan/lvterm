@@ -14,6 +14,7 @@
 
 local bit = require 'bit'
 local ffi = require 'ffi'
+local jit = require 'jit'
 
 ffi.cdef [[
 typedef struct VTerm VTerm;
@@ -447,6 +448,16 @@ end
 -- @treturn bool
 function Handle:cursor_visible()
    return self.shown
+end
+
+
+-- LuaJIT only knows that a call to a C function calls back once it has seen
+-- it do so, and a callback in code that it compiled before then is fatal:
+-- "bad callback".  Output that does not scroll can make a loop hot, and the
+-- first line that scrolls then panics, so keep what calls libvterm, where
+-- a callback may be made, out of compiled code.
+for _, name in ipairs {'write', 'resize', 'reset', 'key', 'char', 'paste'} do
+   jit.off(Handle[name])
 end
 
 

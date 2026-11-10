@@ -10,6 +10,28 @@ before:
      return table.concat(out)
   end
 
+  -- What a program that uses lvterm prints, run in a process of its own.  LuaJIT
+  -- is only safe from a callback in a call that it compiled once the call has
+  -- made one, so an example that needs it not to have has to be in a process
+  -- where no other example has.
+  function fresh(body)
+     local name = os.tmpname()
+     local file = io.open(name, 'w')
+     file:write("local lvterm = require 'lvterm'\n", body, "\nprint 'done'\n")
+     file:close()
+     local first = -1
+     while arg[first - 1] do
+        first = first - 1
+     end
+     local command = string.format('LUA_PATH=%q LUA_CPATH=%q %q %q 2>&1',
+                                   package.path, package.cpath, arg[first], name)
+     local pipe = io.popen(command)
+     local out = pipe:read '*a'
+     pipe:close()
+     os.remove(name)
+     return out
+  end
+
   -- What the terminal sends for one key, one character, or a paste, which it then forgets.
   function keys(term, name, mods)
      term:key(name, mods)
@@ -343,6 +365,17 @@ specify lvterm:
       term:resize(3, 6)
       expect(term:scrollback_size()).to_be(0)
       expect(term:row(0)).to_be 'abc   '
+
+- describe the output that makes a loop hot before anything calls back:
+  - it still scrolls when the first line to scroll comes after many writes that did not:
+      out = fresh [[
+         local term = lvterm.new(5, 40)
+         for i = 1, 250 do
+            term:write 'x'
+         end
+         print(term:scrollback_size(), term:row(4))
+      ]]
+      expect(out).to_be('2\t' .. string.rep('x', 10) .. string.rep(' ', 30) .. '\ndone\n')
 
 - describe altscreen:
   - it is not on to start with:
