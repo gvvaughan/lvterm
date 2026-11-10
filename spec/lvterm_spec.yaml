@@ -57,7 +57,7 @@ before:
   end
 
 specify lvterm:
-- describe the backend:
+- describe backend:
   - it is one that exists:
       known = {ffi = true, core = true}
       expect(known[lvterm.backend]).to_be(true)
@@ -79,7 +79,7 @@ specify lvterm:
       expect(lvterm.new(2, 4, {scrollback = -1})).to_raise 'number of lines'
       expect(lvterm.new(2, 4, {scrollback = 1.5})).to_raise 'number of lines'
       expect(lvterm.new(2, 4, {scrollback = 'all'})).to_raise 'number of lines'
-  - it starts with an empty screen and the cursor at the top left:
+  - it makes a terminal with an empty screen and the cursor at the top left:
       term = lvterm.new(3, 4)
       expect(term:lines()).to_equal {'    ', '    ', '    '}
       expect({term:cursor()}).to_equal {0, 0}
@@ -94,12 +94,12 @@ specify lvterm:
       term = lvterm.new(5, 20)
       expect(term:write('a'):write('b')).to_be(term)
       expect(term:text(0, 0, 2)).to_be 'ab'
-  - it moves the cursor when told to:
+  - it moves the cursor when the program writes a sequence that moves it:
       term = lvterm.new(5, 20)
       term:write '\27[3;5Hx'
       expect(term:text(2, 4, 1)).to_be 'x'
       expect({term:cursor()}).to_equal {2, 5}
-  - it moves to the start of the next line:
+  - it starts a new line for a carriage return and a line feed:
       term = lvterm.new(5, 20)
       term:write 'ab\r\ncd'
       expect(term:text(0, 0, 2)).to_be 'ab'
@@ -114,11 +114,11 @@ specify lvterm:
       term = lvterm.new(2, 3)
       term:write 'one\r\ntwo\r\nsix'
       expect(term:lines()).to_equal {'two', 'six'}
-  - it erases the screen:
+  - it erases the screen when the program writes a sequence that erases it:
       term = lvterm.new(2, 3)
       term:write('abc'):write '\27[2J'
       expect(term:lines()).to_equal {'   ', '   '}
-  - it erases to the end of the line:
+  - it erases to the end of the line when the program writes a sequence that erases it:
       term = lvterm.new(2, 4)
       term:write 'abcd\27[1;3H\27[K'
       expect(term:row(0)).to_be 'ab  '
@@ -136,6 +136,16 @@ specify lvterm:
       expect(term:text(0, 0, 3)).to_be 'alt'
       term:write '\27[?1049l'
       expect(term:text(0, 0, 4)).to_be 'main'
+  - context when many writes have scrolled nothing:
+    - it still scrolls at the first write that does:
+        out = fresh [[
+           local term = lvterm.new(5, 40)
+           for i = 1, 250 do
+              term:write 'x'
+           end
+           print(term:scrollback_size(), term:row(4))
+        ]]
+        expect(out).to_be('2\t' .. string.rep('x', 10) .. string.rep(' ', 30) .. '\ndone\n')
 
 - describe text:
   - it reads part of a row:
@@ -150,7 +160,7 @@ specify lvterm:
       term = lvterm.new(2, 5)
       term:write 'a\27[1;4Hb'
       expect(term:row(0)).to_be 'a  b '
-  - it is as wide as the columns that it was asked for:
+  - it is as wide as the number of columns that it was asked for:
       term = lvterm.new(2, 5)
       expect(#term:text(1, 1, 3)).to_be(3)
   - it counts a wide character as the two columns that it takes:
@@ -373,47 +383,8 @@ specify lvterm:
       expect(term:scrollback_size()).to_be(0)
       expect(term:row(0)).to_be 'abc   '
 
-- describe the output that makes a loop hot before anything calls back:
-  - it still scrolls when the first line to scroll comes after many writes that did not:
-      out = fresh [[
-         local term = lvterm.new(5, 40)
-         for i = 1, 250 do
-            term:write 'x'
-         end
-         print(term:scrollback_size(), term:row(4))
-      ]]
-      expect(out).to_be('2\t' .. string.rep('x', 10) .. string.rep(' ', 30) .. '\ndone\n')
-
-  - it still tells the program of the mouse when the first move that does comes after many that did not:
-      out = fresh [[
-         local term = lvterm.new(5, 40)
-         for i = 1, 250 do
-            term:mouse_move(0, i % 40)
-            term:mouse_button('left', i % 2 == 0)
-         end
-         term:write '\27[?1000h\27[?1006h'
-         term:mouse_move(1, 2)
-         term:mouse_button('right', true)
-         print((term:output():gsub('\27', 'E')))
-      ]]
-      expect(out).to_be 'E[<2;3;2M\ndone\n'
-
-  - it still tells the program of the focus when the first report comes after many calls that sent none:
-      out = fresh [[
-         local term = lvterm.new(5, 40)
-         for i = 1, 250 do
-            term:focus_in()
-            term:focus_out()
-         end
-         term:write '\27[?1004h'
-         term:focus_in()
-         term:focus_out()
-         print((term:output():gsub('\27', 'E')))
-      ]]
-      expect(out).to_be 'E[IE[O\ndone\n'
-
 - describe altscreen:
-  - it is not on to start with:
+  - it is false to start with:
       term = lvterm.new(2, 4)
       expect(term:altscreen()).to_be(false)
   - it is on while the program is on the alternate screen:
@@ -430,7 +401,7 @@ specify lvterm:
       term:write '\27[?1047l'
       expect(term:altscreen()).to_be(false)
       expect(term:row(0)).to_be 'ab  '
-  - it is not for a sequence that libvterm does not take to be a switch:
+  - it is false for a sequence that libvterm does not take to be a switch:
       term = lvterm.new(2, 4)
       term:write '\27[?47h'
       expect(term:altscreen()).to_be(false)
@@ -500,17 +471,17 @@ specify lvterm:
       expect(keys(term, 'up', {shift = true, ctrl = true})).to_be '\27[1;6A'
       expect(keys(term, 'delete', {ctrl = true})).to_be '\27[3;5~'
       expect(keys(term, 'tab', {shift = true})).to_be '\27[Z'
-  - it is no modifier for a modifier that is false:
+  - it adds no modifier for a modifier that is false:
       term = lvterm.new(2, 4)
       expect(keys(term, 'up', {shift = false, alt = false, ctrl = false})).to_be '\27[A'
   - it returns the terminal, so calls can be chained:
       term = lvterm.new(2, 4)
       expect(term:key 'up').to_be(term)
-  - it is not a key that it does not have:
+  - it diagnoses a key that it does not have:
       term = lvterm.new(2, 4)
       expect(term:key 'f13').to_raise 'unknown key'
       expect(term:key 'space').to_raise 'unknown key'
-  - it is the reply that output takes, in the order that they were made:
+  - it queues what it sends in the order that it was made, with the replies:
       term = lvterm.new(2, 4)
       term:key 'up'
       term:write '\27[6n'
@@ -549,13 +520,13 @@ specify lvterm:
   - it sends bytes that are not text, and nothing else:
       term = lvterm.new(2, 4)
       expect(pastes(term, '\0\1\255\27')).to_be '\0\1\255\27'
-  - it puts the text between the marks that bracketed paste asked for:
+  - it sends the text between the marks that bracketed paste asked for:
       term = lvterm.new(2, 4)
       term:write '\27[?2004h'
       expect(pastes(term, 'hi')).to_be '\27[200~hi\27[201~'
       term:write '\27[?2004l'
       expect(pastes(term, 'hi')).to_be 'hi'
-  - it is as long as the text is, whatever the size of a reply:
+  - it sends all of a long text, whatever the size of a reply:
       term = lvterm.new(2, 4)
       text = string.rep('0123456789', 5000)
       expect(pastes(term, text)).to_be(text)
@@ -635,7 +606,7 @@ specify lvterm:
       term:write '\27[?1000h'
       clicks(term, 2, 3, 'left', true)
       expect(clicks(term, 2, 3, 'left', false)).to_be '\27[M#$#'
-  - it sends the older encoding of a press, which says where in a byte for each:
+  - it sends the older encoding of a press, with a byte for each of the button and the place:
       term = lvterm.new(5, 20)
       term:write '\27[?1000h'
       expect(clicks(term, 2, 3, 'left', true)).to_be '\27[M $#'
@@ -650,6 +621,20 @@ specify lvterm:
   - it returns the terminal, so calls can be chained:
       term = lvterm.new(5, 20)
       expect(term:mouse_button('left', true)).to_be(term)
+  - context when many calls have sent nothing:
+    - it still sends what the program asked for, as soon as it asks:
+        out = fresh [[
+           local term = lvterm.new(5, 40)
+           for i = 1, 250 do
+              term:mouse_move(0, i % 40)
+              term:mouse_button('left', i % 2 == 0)
+           end
+           term:write '\27[?1000h\27[?1006h'
+           term:mouse_move(1, 2)
+           term:mouse_button('right', true)
+           print((term:output():gsub('\27', 'E')))
+        ]]
+        expect(out).to_be 'E[<2;3;2M\ndone\n'
 
 - describe mouse_move:
   - it sends nothing when the program asked only for clicks:
@@ -742,7 +727,7 @@ specify lvterm:
       expect(term:row(0)).to_be 'ab      '
 
 - describe bells:
-  - it is none to start with:
+  - it is zero to start with:
       term = lvterm.new(2, 4)
       expect(term:bells()).to_be(0)
   - it counts the bells that were rung:
@@ -754,11 +739,11 @@ specify lvterm:
       term:write '\7\7'
       term:bells()
       expect(term:bells()).to_be(0)
-  - it is not rung by the end of a title, which is also a bell:
+  - it does not count the end of a title, which is also a bell:
       term = lvterm.new(2, 4)
       term:write '\27]2;title\7'
       expect(term:bells()).to_be(0)
-  - it is not drawn on the screen:
+  - it does not draw a bell on the screen:
       term = lvterm.new(2, 4)
       term:write 'a\7b'
       expect(term:row(0)).to_be 'ab  '
@@ -778,7 +763,7 @@ specify lvterm:
       term = lvterm.new(5, 20)
       term:set_termprop('mouse', 'click')
       expect(clicks(term, 2, 3, 'left', true)).to_be '\27[M $#'
-  - it is the same as the program asking, whatever the program asks for:
+  - it has the same effect as the program asking, whatever the program asks for:
       for _, mode in ipairs {'click', 'drag', 'move'} do
          by_program = lvterm.new(5, 20)
          by_program:write('\27[?' .. ({click = 1000, drag = 1002, move = 1003})[mode] .. 'h\27[?1006h')
@@ -790,12 +775,12 @@ specify lvterm:
          by_program:mouse_move(3, 5)
          expect(by_call:output()).to_be(by_program:output())
       end
-  - it leaves how the mouse is written to the program:
+  - it leaves the form of the reports of the mouse to the program:
       term = lvterm.new(5, 20)
       term:set_termprop('mouse', 'click')
       term:write '\27[?1006h'
       expect(clicks(term, 2, 3, 'left', true)).to_be '\27[<0;4;3M'
-  - it stops the mouse being told of, when it is none:
+  - it stops the reports of the mouse, when the mode is none:
       term = lvterm.new(5, 20)
       term:set_termprop('mouse', 'click')
       term:set_termprop('mouse', 'none')
@@ -817,7 +802,7 @@ specify lvterm:
       expect(term:set_termprop('mouse', 'click')).to_be(term)
 
 - describe set_mode:
-  - context with bracketed_paste:
+  - context when the mode is bracketed_paste:
     - it makes paste send the marks around the text, when it is true:
         term = lvterm.new(2, 4)
         term:set_mode('bracketed_paste', true)
@@ -833,7 +818,7 @@ specify lvterm:
         by_program = lvterm.new(2, 4)
         by_program:write '\27[?2004h'
         expect(pastes(by_call, 'text')).to_be(pastes(by_program, 'text'))
-  - context with application_cursor_keys:
+  - context when the mode is application_cursor_keys:
     - it makes the arrow keys send the application form, when it is true:
         term = lvterm.new(2, 4)
         term:set_mode('application_cursor_keys', true)
@@ -849,7 +834,7 @@ specify lvterm:
         by_program = lvterm.new(2, 4)
         by_program:write '\27[?1h'
         expect(keys(by_call, 'left')).to_be(keys(by_program, 'left'))
-  - context with mouse_encoding:
+  - context when the mode is mouse_encoding:
     - it makes the reports of the mouse use the SGR form, when it is sgr:
         term = lvterm.new(5, 20)
         term:set_termprop('mouse', 'click')
@@ -937,7 +922,7 @@ specify lvterm:
       term:write '\27[?1004h'
       term:focus_in()
       expect(term:output()).to_be '\27[I'
-  - it is sent when set_termprop asked for it as well:
+  - it sends the report when set_termprop asked for it as well:
       term = lvterm.new(2, 4)
       term:set_termprop('focusreport', true)
       term:focus_in()
@@ -945,6 +930,20 @@ specify lvterm:
   - it returns the terminal, so calls can be chained:
       term = lvterm.new(2, 4)
       expect(term:focus_in()).to_be(term)
+  - context when many calls have sent nothing:
+    - it still sends the report, as soon as the program asks for it:
+        out = fresh [[
+           local term = lvterm.new(5, 40)
+           for i = 1, 250 do
+              term:focus_in()
+              term:focus_out()
+           end
+           term:write '\27[?1004h'
+           term:focus_in()
+           term:focus_out()
+           print((term:output():gsub('\27', 'E')))
+        ]]
+        expect(out).to_be 'E[IE[O\ndone\n'
 
 - describe focus_out:
   - it sends nothing when the program did not ask to be told:

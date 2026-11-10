@@ -6,8 +6,8 @@ before:
   lvterm = require 'lvterm'
   term = lvterm.new(5, 20)
 
-specify the arguments of:
-- describe lvterm.new:
+specify lvterm:
+- describe new:
   - context with bad arguments:
       badargs.diagnose('lvterm.new (<?int>, <?int>, <?table>)', lvterm.new)
 

@@ -1,55 +1,69 @@
-specify the backends:
-- describe agree on:
-  - it plain text, wrapped and scrolled:
+describe a backend that draws what a program writes:
+- context when the program writes plain text, wrapped and scrolled:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       expect(differences(noise(0) .. string.rep('wrap around this line ', 90), 5, 20)).to_equal {}
-  - it attributes and colors:
+- context when the program sets attributes and colors:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       expect(differences('\27[1mb\27[3mi\27[4mu\27[5mk\27[7mr\27[8mc\27[9ms\27[0mn\27[31;44mc\27[38;5;202mx\27[48;2;1;2;3my')).to_equal {}
-  - it wide and combining characters:
+- context when the program writes wide and combining characters:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       expect(differences('\228\184\173\230\150\135 e\204\129 \227\130\162a', 3, 20)).to_equal {}
-  - it line drawing characters:
+- context when the program draws lines with the DEC special graphics characters:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       expect(differences('\27(0lqqqk\r\nx   x\r\nmqqqj\27(B done', 5, 20)).to_equal {}
-  - it the alternate screen:
+- context when the program switches to the alternate screen and back:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       expect(differences('main\27[?1049h\27[2Jalt\27[?1049l back')).to_equal {}
-  - it scroll regions and inserting and deleting:
+- context when the program sets scroll regions, and inserts and deletes:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       expect(differences('\27[2;5r\27[2;1Hone\r\ntwo\r\nsix\r\nten\r\nend\27[2;1H\27[2L\27[1M\27[3@\27[2P', 8, 20)).to_equal {}
-  - it what the terminal sends back:
+- context when the program asks something that the terminal answers:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       expect(differences('\27[3;4H\27[6n\27[c', 5, 20)).to_equal {}
-  - it a resize between writes:
+- context when the terminal is resized between writes:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       expect(differences('abcdefghij\r\nklmnopqrst', 5, 20, 'uvw', {3, 8})).to_equal {}
-  - it a long deterministic stream of everything above, at several sizes:
+- context when the program writes a long stream of everything above, at several sizes:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       expect(differences(noise(3000), 24, 80)).to_equal {}
       expect(differences(noise(3000), 7, 13)).to_equal {}
       expect(differences(noise(3000), 1, 5)).to_equal {}
-  - it scrollback, and what it gives back when the terminal is resized:
+- context when lines scroll off the top, and the terminal is resized:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       expect(differences('a\27[31mb\27[0m\r\n\228\184\173c\r\nd\r\ne\r\nf\r\ng', 4, 6, 'x\r\ny', {2, 4})).to_equal {}
       expect(differences('a\r\nb\r\nc\r\nd\r\ne', 3, 6, '\r\nf', {5, 6})).to_equal {}
       expect(differences('a\r\nb\r\nc\r\nd\27[3J\r\ne', 2, 6)).to_equal {}
-  - it the alternate screen, which has no scrollback, and the cursor being hidden:
+- context when the program hides the cursor on the alternate screen, which has no scrollback:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       expect(differences('a\r\nb\r\nc\27[?1049h\27[?25lx\r\ny\r\nz\r\nw', 2, 6)).to_equal {}
       expect(differences('a\r\nb\r\nc\27[?1049h\27[?25lx\27[?1049l\27[?25h', 2, 6)).to_equal {}
 
-- describe agree on what is sent for input:
-  - it every key with every modifier, and every character, and a paste:
+describe a backend that sends what a user does to the program:
+- context when every key is pressed with every modifier, and every character and a paste is sent:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       expect(input_differences '').to_equal {}
-  - it the same, with the cursor keys that the program asked for:
+- context when the program asked for application cursor keys:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       expect(input_differences '\27[?1h').to_equal {}
-  - it the same, with a paste that is bracketed:
+- context when the program asked for bracketed paste:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       expect(input_differences '\27[?2004h').to_equal {}
-  - it the same, for the mouse that the program asked to be told of, as each mode and encoding writes it:
+- context when the program asked for the mouse, in every mode and form:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       for _, stream in ipairs {
          '\27[?1000h', '\27[?1000h\27[?1006h', '\27[?1002h\27[?1006h',
@@ -57,28 +71,12 @@ specify the backends:
       } do
          expect(input_differences(stream)).to_equal {}
       end
-
-- describe agree on what the program says of itself:
-  - it the title, and one that comes in pieces:
-      if not both_backends then pending 'needs both backends' end
-      expect(differences('a\27]0;one\7b\27]2;two\27\\c\27]2;thr', 2, 8, 'ee\7')).to_equal {}
-  - it a title that was cancelled, and the one that follows:
-      if not both_backends then pending 'needs both backends' end
-      expect(differences('\27]2;first\7\27]2;abc', 2, 8, '\24\27]2;def\7')).to_equal {}
-  - it a title of text that is not ASCII, and of none:
-      if not both_backends then pending 'needs both backends' end
-      expect(differences('\27]2;caf\195\169 \228\184\173\7\27]2;\7')).to_equal {}
-  - it the bells:
-      if not both_backends then pending 'needs both backends' end
-      expect(differences('\7a\7\27]2;t\7')).to_equal {}
-  - it what the mouse is asked for, and after a reset:
-      if not both_backends then pending 'needs both backends' end
-      expect(differences('\27[?1000h\27[?1002h')).to_equal {}
-      expect(differences('\27[?1003h\27[?1003l')).to_equal {}
-  - it the same, for what the focus reports when the program asked for them:
+- context when the program asked for the reports of the focus:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       expect(input_differences '\27[?1004h').to_equal {}
-  - it the same, with the properties set by set_termprop and not by the program:
+- context when `set_termprop` sets the properties, and not the program:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       for _, mode in ipairs {'click', 'drag', 'move'} do
          expect(input_differences('\27[?1006h', function(term)
@@ -86,7 +84,8 @@ specify the backends:
             term:set_termprop('focusreport', true)
          end)).to_equal {}
       end
-  - it the same, with the modes set by set_mode and not by the program:
+- context when `set_mode` sets the modes, and not the program:
+  - it behaves in the same way as the other backend:
       if not both_backends then pending 'needs both backends' end
       for _, encoding in ipairs {'x10', 'utf8', 'sgr', 'urxvt'} do
          expect(input_differences('', function(term)
@@ -96,3 +95,26 @@ specify the backends:
             term:set_mode('application_cursor_keys', true)
          end)).to_equal {}
       end
+
+describe a backend that reports what the program says of itself:
+- context when the program sets a title, even in pieces:
+  - it behaves in the same way as the other backend:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('a\27]0;one\7b\27]2;two\27\\c\27]2;thr', 2, 8, 'ee\7')).to_equal {}
+- context when the program cancels a title, and sets another:
+  - it behaves in the same way as the other backend:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('\27]2;first\7\27]2;abc', 2, 8, '\24\27]2;def\7')).to_equal {}
+- context when the program sets a title of text that is not ASCII, or an empty one:
+  - it behaves in the same way as the other backend:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('\27]2;caf\195\169 \228\184\173\7\27]2;\7')).to_equal {}
+- context when the program rings the bell:
+  - it behaves in the same way as the other backend:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('\7a\7\27]2;t\7')).to_equal {}
+- context when the program asks for the mouse, before and after a reset:
+  - it behaves in the same way as the other backend:
+      if not both_backends then pending 'needs both backends' end
+      expect(differences('\27[?1000h\27[?1002h')).to_equal {}
+      expect(differences('\27[?1003h\27[?1003l')).to_equal {}
