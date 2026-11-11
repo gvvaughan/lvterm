@@ -43,6 +43,10 @@ specify lvterm:
   - context with bad arguments:
       badargs.diagnose('lvterm.terminal.row (table, int)', term.row)
 
+- describe runs:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.runs (table, int)', term.runs)
+
 - describe lines:
   - context with bad arguments:
       badargs.diagnose('lvterm.terminal.lines (table)', term.lines)
@@ -54,6 +58,10 @@ specify lvterm:
 - describe scrollback_line:
   - context with bad arguments:
       badargs.diagnose('lvterm.terminal.scrollback_line (table, int)', term.scrollback_line)
+
+- describe scrollback_runs:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.scrollback_runs (table, int)', term.scrollback_runs)
 
 - describe scrollback_clear:
   - context with bad arguments:

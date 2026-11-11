@@ -597,6 +597,126 @@ pushcell(lua_State *L, const VTermScreenCell *cell)
 }
 
 
+/* Whether two colors are the same, which two default colors are whatever
+   bytes the rest of them have. */
+static int
+samecolor(const VTermColor *a, const VTermColor *b)
+{
+	int da = VTERM_COLOR_IS_DEFAULT_FG(a) || VTERM_COLOR_IS_DEFAULT_BG(a);
+	int db = VTERM_COLOR_IS_DEFAULT_FG(b) || VTERM_COLOR_IS_DEFAULT_BG(b);
+
+	if (da || db)
+		return da == db;
+	if (VTERM_COLOR_IS_INDEXED(a) != VTERM_COLOR_IS_INDEXED(b))
+		return 0;
+	if (VTERM_COLOR_IS_INDEXED(a))
+		return a->indexed.idx == b->indexed.idx;
+	return a->rgb.red == b->rgb.red && a->rgb.green == b->rgb.green
+		&& a->rgb.blue == b->rgb.blue;
+}
+
+
+/* Whether two cells are drawn alike, which is what `cell` says about them
+   other than the text. */
+static int
+alike(const VTermScreenCell *a, const VTermScreenCell *b)
+{
+	return a->attrs.bold == b->attrs.bold
+		&& a->attrs.italic == b->attrs.italic
+		&& a->attrs.blink == b->attrs.blink
+		&& a->attrs.reverse == b->attrs.reverse
+		&& a->attrs.conceal == b->attrs.conceal
+		&& a->attrs.strike == b->attrs.strike
+		&& a->attrs.underline == b->attrs.underline
+		&& samecolor(&a->fg, &b->fg) && samecolor(&a->bg, &b->bg);
+}
+
+
+/* Push the runs of COLS cells, which are drawn alike, in a table.  The right
+   half of a wide character is in the run of the character, whatever libvterm
+   says that it is drawn like. */
+static void
+pushruns(lua_State *L, const VTermScreenCell *cells, int cols)
+{
+	int i = 0, n = 0;
+
+	lua_newtable(L);
+	while (i < cols)
+	{
+		const VTermScreenCell *first = &cells[i];
+		luaL_Buffer b;
+		int j = i + 1, k, m;
+
+		while (j < cols
+		       && (cells[j].chars[0] == (uint32_t) -1 || alike(first, &cells[j])))
+			j++;
+
+		luaL_buffinit(L, &b);
+		for (k = i; k < j; k++)
+		{
+			if (cells[k].chars[0] == 0)
+				luaL_addchar(&b, ' ');
+			for (m = 0; m < VTERM_MAX_CHARS_PER_CELL && cells[k].chars[m] != 0; m++)
+				if (cells[k].chars[m] != (uint32_t) -1)
+					addutf8(&b, cells[k].chars[m]);
+		}
+		luaL_pushresult(&b);
+
+		lua_createtable(L, 0, 12);
+		lua_pushvalue(L, -2);
+		lua_setfield(L, -2, "text");
+		lua_pushinteger(L, i);
+		lua_setfield(L, -2, "col");
+		lua_pushinteger(L, j - i);
+		lua_setfield(L, -2, "cols");
+		setboolean(L, "bold", first->attrs.bold);
+		setboolean(L, "italic", first->attrs.italic);
+		setboolean(L, "blink", first->attrs.blink);
+		setboolean(L, "reverse", first->attrs.reverse);
+		setboolean(L, "conceal", first->attrs.conceal);
+		setboolean(L, "strike", first->attrs.strike);
+		lua_pushinteger(L, first->attrs.underline);
+		lua_setfield(L, -2, "underline");
+		pushcolor(L, &first->fg);
+		lua_setfield(L, -2, "fg");
+		pushcolor(L, &first->bg);
+		lua_setfield(L, -2, "bg");
+
+		/* The table is over the text that was pushed first. */
+		lua_remove(L, -2);
+		lua_rawseti(L, -2, ++n);
+		i = j;
+	}
+}
+
+
+/***
+What a row of the screen shows, as runs of cells that are drawn alike.
+@function runs
+@int row line to read, from 0, which must be on the screen
+@treturn table the runs, as `lvterm.terminal.Terminal:runs` documents
+*/
+static int
+handle_runs(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+	VTermPos pos;
+	VTermScreenCell *cells;
+	int rows, cols;
+
+	pos.row = (int) luaL_checkinteger(L, 2);
+	vterm_get_size(h->vt, &rows, &cols);
+	cells = (VTermScreenCell *) lua_newuserdata(L, (cols > 0 ? cols : 1) * sizeof (VTermScreenCell));
+	for (pos.col = 0; pos.col < cols; pos.col++)
+		if (!vterm_screen_get_cell(h->screen, pos, &cells[pos.col]))
+			return luaL_error(L, "position %d,%d is not on the screen",
+					  pos.row, pos.col);
+
+	pushruns(L, cells, cols);
+	return 1;
+}
+
+
 /***
 What one cell of the screen shows, which must be on it.
 @function cell
@@ -733,6 +853,35 @@ handle_scrollback_line(lua_State *L)
 		pushcell(L, i < line->n ? &line->cells[i] : &blank);
 		lua_rawseti(L, -2, i + 1);
 	}
+	return 1;
+}
+
+
+/***
+A line that scrolled off the top, as runs of cells that are drawn alike.
+@function scrollback_runs
+@int n which, from 1 for the newest, which must be there
+@treturn table the runs, as `lvterm.terminal.Terminal:runs` documents
+*/
+static int
+handle_scrollback_runs(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+	size_t n = (size_t) luaL_checkinteger(L, 2);
+	Line *line;
+	VTermScreenCell *cells;
+	int i;
+
+	if (n < 1 || n > h->count)
+		return luaL_error(L, "line %d is not in the scrollback", (int) n);
+	line = scrolled(h, n);
+
+	cells = (VTermScreenCell *) lua_newuserdata(L, (line->cols > 0 ? line->cols : 1) * sizeof (VTermScreenCell));
+	memcpy(cells, line->cells, line->n * sizeof (VTermScreenCell));
+	for (i = line->n; i < line->cols; i++)
+		blankcell(&cells[i]);
+
+	pushruns(L, cells, line->cols);
 	return 1;
 }
 
@@ -924,12 +1073,14 @@ static const luaL_Reg handle_methods[] =
 	{"reset",	handle_reset},
 	{"cursor",	handle_cursor},
 	{"cell",	handle_cell},
+	{"runs",	handle_runs},
 	{"output",	handle_output},
 	{"key",		handle_key},
 	{"char",	handle_char},
 	{"paste",	handle_paste},
 	{"scrollback_size",	handle_scrollback_size},
 	{"scrollback_line",	handle_scrollback_line},
+	{"scrollback_runs",	handle_scrollback_runs},
 	{"scrollback_clear",	handle_scrollback_clear},
 	{"altscreen",	handle_altscreen},
 	{"cursor_visible",	handle_cursor_visible},

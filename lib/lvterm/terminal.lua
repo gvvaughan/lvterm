@@ -174,6 +174,24 @@ local function cell(self, row, col)
 end
 
 
+--- What one row of the screen shows, as runs of cells that are drawn alike.
+-- A program that draws a row, such as the screen of a terminal in an editor,
+-- does so a run at a time, which is a call for each run, and not for each
+-- cell.
+-- @function runs
+-- @int row line to read, from 0
+-- @treturn {table,...} the runs, from the first column to the last, each
+--   with `col` (the first column, from 0), `cols` (how many columns, which
+--   add up to the width of the screen), `text` (the text of its cells, as
+--   `cell` gives them, so that the right half of a wide character has none),
+--   and the fields of `cell` that cells are alike in: `bold`, `italic`,
+--   `blink`, `reverse`, `conceal`, `strike`, `underline`, `fg` and `bg`
+local function runs(self, row)
+   check(self, row, 0)
+   return self.handle:runs(row)
+end
+
+
 --- Some of the text on the screen, from one row.
 -- @function text
 -- @int row line to read, from 0
@@ -239,6 +257,20 @@ local function scrollback_line(self, n)
       error(format('line %s is outside a scrollback of %d lines', tostring(n), count), 2)
    end
    return self.handle:scrollback_line(n)
+end
+
+
+--- A line that scrolled off the top of the screen, as runs of cells that are
+-- drawn alike.
+-- @function scrollback_runs
+-- @int n which line, from 1 for the newest to `scrollback_size` for the oldest
+-- @treturn {table,...} the runs of the line as it was, of the kind that `runs` gives
+local function scrollback_runs(self, n)
+   local count = self.handle:scrollback_size()
+   if type(n) ~= 'number' or n < 1 or n > count or n % 1 ~= 0 then
+      error(format('line %s is outside a scrollback of %d lines', tostring(n), count), 2)
+   end
+   return self.handle:scrollback_runs(n)
 end
 
 
@@ -498,11 +530,13 @@ local Terminal = {
    size = argscheck('lvterm.terminal.size (table)', size),
    cursor = argscheck('lvterm.terminal.cursor (table)', cursor),
    cell = argscheck('lvterm.terminal.cell (table, int, int)', cell),
+   runs = argscheck('lvterm.terminal.runs (table, int)', runs),
    text = argscheck('lvterm.terminal.text (table, int, <?int>, <?int>)', text),
    row = argscheck('lvterm.terminal.row (table, int)', row),
    lines = argscheck('lvterm.terminal.lines (table)', lines),
    scrollback_size = argscheck('lvterm.terminal.scrollback_size (table)', scrollback_size),
    scrollback_line = argscheck('lvterm.terminal.scrollback_line (table, int)', scrollback_line),
+   scrollback_runs = argscheck('lvterm.terminal.scrollback_runs (table, int)', scrollback_runs),
    scrollback_clear = argscheck('lvterm.terminal.scrollback_clear (table)', scrollback_clear),
    altscreen = argscheck('lvterm.terminal.altscreen (table)', altscreen),
    cursor_visible = argscheck('lvterm.terminal.cursor_visible (table)', cursor_visible),

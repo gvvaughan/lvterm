@@ -52,6 +52,30 @@ local FIELDS = {
 }
 
 
+-- What two lists of runs disagree about.
+local function run_differences(x, y)
+   local diffs = {}
+   if #x ~= #y then
+      diffs[#diffs + 1] = string.format('count %d against %d', #x, #y)
+      return diffs
+   end
+   for i = 1, #x do
+      for _, field in ipairs {'col', 'cols', 'text', 'bold', 'italic', 'blink', 'reverse', 'conceal',
+                              'strike', 'underline'} do
+         if x[i][field] ~= y[i][field] then
+            diffs[#diffs + 1] = string.format('run %d %s', i, field)
+         end
+      end
+      for _, field in ipairs {'fg', 'bg'} do
+         if not same_color(x[i][field], y[i][field]) then
+            diffs[#diffs + 1] = string.format('run %d %s', i, field)
+         end
+      end
+   end
+   return diffs
+end
+
+
 --- What the `ffi` and `core` backends disagree about.
 -- Each is made a terminal of the same size, fed the same bytes, then
 -- resized, and fed more, and their screens, cursors and replies compared.
@@ -89,6 +113,9 @@ function differences(stream, rows, cols, more, resize)
    end
 
    for row = 0, rows - 1 do
+      for _, d in ipairs(run_differences(a:runs(row), b:runs(row))) do
+         diffs[#diffs + 1] = string.format('runs of row %d %s', row, d)
+      end
       for col = 0, cols - 1 do
          local x, y = a:cell(row, col), b:cell(row, col)
          for _, field in ipairs(FIELDS) do
@@ -126,6 +153,9 @@ function differences(stream, rows, cols, more, resize)
       diffs[#diffs + 1] = string.format('scrollback size %d against %d', a:scrollback_size(), b:scrollback_size())
    else
       for n = 1, a:scrollback_size() do
+         for _, d in ipairs(run_differences(a:scrollback_runs(n), b:scrollback_runs(n))) do
+            diffs[#diffs + 1] = string.format('runs of scrollback %d %s', n, d)
+         end
          local x, y = a:scrollback_line(n), b:scrollback_line(n)
          if #x ~= #y then
             diffs[#diffs + 1] = string.format('scrollback %d width', n)

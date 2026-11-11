@@ -445,6 +445,122 @@ local function cell(self, row, col)
 end
 
 
+-- Whether two colors of libvterm are the same, which two default colors are
+-- whatever bytes the rest of them have.
+local function same_color(a, b)
+   local ta, tb = a.type, b.type
+   local da, db = band(ta, 6) ~= 0, band(tb, 6) ~= 0
+   if da or db then
+      return da == db
+   elseif band(ta, 1) ~= band(tb, 1) then
+      return false
+   elseif band(ta, 1) == 1 then
+      return a.indexed.idx == b.indexed.idx
+   end
+   return a.rgb.red == b.rgb.red and a.rgb.green == b.rgb.green and a.rgb.blue == b.rgb.blue
+end
+
+
+-- Whether two cells are drawn alike, which is what `cell` says about them
+-- other than the text.
+local function alike(a, b)
+   local x, y = a.attrs, b.attrs
+   return x.bold == y.bold and x.italic == y.italic and x.blink == y.blink
+      and x.reverse == y.reverse and x.conceal == y.conceal and x.strike == y.strike
+      and x.underline == y.underline and same_color(a.fg, b.fg) and same_color(a.bg, b.bg)
+end
+
+
+-- The text of each code point that a cell has had, so that most of them are
+-- made once.
+local glyphs = {}
+
+-- The text of a cell: a space for one that nothing was written to, and nothing
+-- for the right half of a wide character.
+local function text_of(cell)
+   local cp = cell.chars[0]
+   if cell.chars[1] == 0 then
+      local g = glyphs[cp]
+      if g == nil then
+         g = cp == 0 and ' ' or cp == 0xFFFFFFFF and '' or utf8char(cp)
+         glyphs[cp] = g
+      end
+      return g
+   end
+   return convert(cell).text
+end
+
+
+-- The cells that are looked at while runs are made, so that none are made for each.
+local flip, flop = ffi.new 'VTermScreenCell', ffi.new 'VTermScreenCell'
+local where = ffi.new 'VTermPos'
+local size_rows, size_cols = ffi.new 'int[1]', ffi.new 'int[1]'
+
+-- The runs of COLS cells, which FETCH gives, one at a time.  It is given the
+-- column and a cell to fill, and gives back the cell, which may be that one.
+local function runs_of(cols, fetch)
+   local out, run, parts, n = {}, nil, nil, 0
+   local cell, prev = flip, flop
+   for col = 0, cols - 1 do
+      cell = fetch(col, cell)
+      if run ~= nil and cell.chars[0] == 0xFFFFFFFF then
+         -- The right half of a wide character is of the run that it is in, whatever libvterm says that
+         -- it is drawn like, and does not start one, or end one for the cell after it.
+         run.cols = run.cols + 1
+      elseif run ~= nil and alike(prev, cell) then
+         run.cols = run.cols + 1
+         n = n + 1
+         parts[n] = text_of(cell)
+      else
+         if run ~= nil then
+            run.text = concat(parts, '', 1, n)
+         end
+         local attrs = cell.attrs
+         run = {
+            col = col,
+            cols = 1,
+            bold = attrs.bold == 1,
+            italic = attrs.italic == 1,
+            blink = attrs.blink == 1,
+            reverse = attrs.reverse == 1,
+            conceal = attrs.conceal == 1,
+            strike = attrs.strike == 1,
+            underline = attrs.underline,
+            fg = color(cell.fg),
+            bg = color(cell.bg),
+         }
+         parts, n = {text_of(cell)}, 1
+         out[#out + 1] = run
+      end
+      if cell.chars[0] ~= 0xFFFFFFFF then
+         -- The cell that was looked at is kept to compare with the next, which is made in the other.
+         prev = cell
+         cell = cell == flip and flop or flip
+      end
+   end
+   if run ~= nil then
+      run.text = concat(parts, '', 1, n)
+   end
+   return out
+end
+
+
+--- What a row of the screen shows, as runs of cells that are drawn alike.
+-- @function runs
+-- @int row line to read, from 0, which must be on the screen
+-- @treturn {table,...} the runs, as `lvterm.terminal.Terminal:runs` documents
+local function runs(self, row)
+   where.row = row
+   C.vterm_get_size(self.vt, size_rows, size_cols)
+   local screen = self.screen
+   return runs_of(size_cols[0], function(col, cell)
+      where.col = col
+      C.vterm_screen_get_cell(screen, where, cell)
+      return cell
+   end)
+end
+
+
 --- Take what the terminal has to send back to the program.
 -- @function output
 -- @treturn string the bytes, which the terminal forgets
@@ -505,6 +621,20 @@ local function scrollback_line(self, n)
       out[i + 1] = convert(i < line.n and cells[i] or BLANK)
    end
    return out
+end
+
+
+--- A line that scrolled off the top, as runs of cells that are drawn alike.
+-- @function scrollback_runs
+-- @int n which, from 1 for the newest, which must be there
+-- @treturn {table,...} the runs, as `lvterm.terminal.Terminal:runs` documents
+local function scrollback_runs(self, n)
+   local line = self.lines[self.last - n + 1]
+   local cells = ffi.new('VTermScreenCell[?]', max(line.n, 1))
+   ffi.copy(cells, line.bytes, line.n * CELL)
+   return runs_of(line.cols, function(col)
+      return col < line.n and cells[col] or BLANK
+   end)
 end
 
 
@@ -617,12 +747,14 @@ Handle = {
    reset = reset,
    cursor = cursor,
    cell = cell,
+   runs = runs,
    output = output,
    key = key,
    char = char,
    paste = paste,
    scrollback_size = scrollback_size,
    scrollback_line = scrollback_line,
+   scrollback_runs = scrollback_runs,
    scrollback_clear = scrollback_clear,
    altscreen = altscreen,
    cursor_visible = cursor_visible,

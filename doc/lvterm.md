@@ -88,6 +88,7 @@ about a position that is not on the screen is an error.
 | `term:row(row)`              | returns one whole row, as wide as the screen   |
 | `term:lines()`               | returns every row, from the top                |
 | `term:cell(row, col)`        | returns the text, width and attributes of one cell |
+| `term:runs(row)`             | returns one row as runs of cells that are drawn alike |
 | `term:cursor()`              | returns the row and column of the cursor       |
 | `term:size()`                | returns the height and width                   |
 | `term:resize(rows, cols)`    | changes the size, and returns the terminal     |
@@ -101,6 +102,17 @@ A cell is a table with these fields:
  * `fg` and `bg` are the colors. Each is `nil` for the default color, a
    number for an index into the palette of 256 colors, or a table with the
    fields `red`, `green` and `blue`.
+
+A program that draws a row, which most draw a run of cells at a time, asks
+for `term:runs(row)` and makes one call for the row, and not one for each
+cell. It is a list of runs, from the first column to the last, which add up to
+the width of the screen. A run is a table with `col`, the first column of it
+from 0, `cols`, how many columns it covers, and `text`, the text of its cells
+as they give it, so that the right half of a wide character adds none. It has
+the fields of a cell that the cells of a run are alike in: `bold`, `italic`,
+`blink`, `reverse`, `conceal`, `strike`, `underline`, `fg` and `bg`. The right
+half of a wide character is in the run of the character, whatever it is drawn
+like.
 
 
 ## 3. Scrollback and the alternate screen
@@ -141,6 +153,7 @@ terminal window, can request the properties it needs with:
 | ---------------------------- | ----------------------------------------------- |
 | `term:scrollback_size()`     | how many lines are in the scrollback            |
 | `term:scrollback_line(n)`    | cells of the nth line (from the newest)         |
+| `term:scrollback_runs(n)`    | runs of the nth line, as `term:runs` gives      |
 | `term:scrollback_clear()`    | forget all lines, and return the terminal       |
 | `term:altscreen()`           | is the virtual terminal on the alternate screen |
 | `term:cursor_visible()`      | is the virtual terminal cursor visible          |

@@ -2,6 +2,18 @@
 
 ## Noteworthy changes in release ?.? (????-??-??) [?]
 
+### New Features
+
+  - `runs(row)` gives a row of the screen as runs of cells that are drawn
+    alike, and `scrollback_runs(n)` a line of the scrollback, in place of a
+    call and a table for each cell, which is most of what a program that
+    draws the screen spends.  A run has `col`, `cols`, `text` and the
+    `bold`, `italic`, `blink`, `reverse`, `conceal`, `strike`, `underline`,
+    `fg` and `bg` of its cells, and the runs of a row cover all of its
+    columns, in order.  The right half of a wide character is in the run of
+    the character, though libvterm draws it as if it had no attributes.
+    Both backends give the same runs, and the same as the cells say.
+
 
 ## Noteworthy changes in release 0.3 (2026-11-10) [stable]
 

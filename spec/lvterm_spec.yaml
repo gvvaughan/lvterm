@@ -10,6 +10,53 @@ before:
      return table.concat(out)
   end
 
+  -- The text of the runs of a row, or of a line of the scrollback, which are each as many columns wide as
+  -- the cells that they have.
+  function ran(runs)
+     local out = {}
+     for i, run in ipairs(runs) do
+        out[i] = run.text
+     end
+     return table.concat(out)
+  end
+
+  -- Whether a run is as a cell says for every column that it covers, and the runs cover all of the columns
+  -- once, from the first, in order.
+  function covers(runs, cells)
+     local col = 0
+     for _, run in ipairs(runs) do
+        if run.col ~= col or run.cols < 1 then
+           return false, 'run at ' .. run.col .. ' expected at ' .. col
+        end
+        local text = {}
+        for c = run.col, run.col + run.cols - 1 do
+           local cell = cells(c)
+           text[#text + 1] = cell.text
+           -- The right half of a wide character is of the run of the character, as libvterm draws it.
+           for _, field in ipairs(cell.text == '' and {} or {'bold', 'italic', 'blink', 'reverse', 'conceal', 'strike', 'underline'}) do
+              if cell[field] ~= run[field] then
+                 return false, field .. ' at ' .. c
+              end
+           end
+           for _, field in ipairs(cell.text == '' and {} or {'fg', 'bg'}) do
+              local a, b = cell[field], run[field]
+              if type(a) == 'table' and type(b) == 'table' then
+                 if a.red ~= b.red or a.green ~= b.green or a.blue ~= b.blue then
+                    return false, field .. ' at ' .. c
+                 end
+              elseif a ~= b then
+                 return false, field .. ' at ' .. c
+              end
+           end
+        end
+        if table.concat(text) ~= run.text then
+           return false, 'text at ' .. run.col
+        end
+        col = col + run.cols
+     end
+     return true
+  end
+
   -- What a program that uses lvterm prints, run in a process of its own.  LuaJIT
   -- is only safe from a callback in a call that it compiled once the call has
   -- made one, so an example that needs it not to have has to be in a process
@@ -226,6 +273,101 @@ specify lvterm:
       expect(term:cell(2, 0)).to_raise 'outside a screen of 2,5'
       expect(term:cell(0, -1)).to_raise 'outside a screen of 2,5'
 
+- describe runs:
+  - it is one run for a row with nothing written to it:
+      term = lvterm.new(2, 5)
+      expect(term:runs(0)).to_equal {
+         {col = 0, cols = 5, text = '     ', bold = false, italic = false, blink = false,
+          reverse = false, conceal = false, strike = false, underline = 0},
+      }
+  - it is one run for text that is all drawn alike, with the blank cells after it:
+      term = lvterm.new(2, 8)
+      term:write 'hello'
+      expect(term:runs(0)).to_equal {
+         {col = 0, cols = 8, text = 'hello   ', bold = false, italic = false, blink = false,
+          reverse = false, conceal = false, strike = false, underline = 0},
+      }
+  - it starts a run where an attribute changes:
+      term = lvterm.new(2, 8)
+      term:write 'ab\27[1mcd\27[0mef'
+      runs = term:runs(0)
+      expect(#runs).to_be(3)
+      expect({runs[1].col, runs[1].cols, runs[1].text, runs[1].bold}).to_equal {0, 2, 'ab', false}
+      expect({runs[2].col, runs[2].cols, runs[2].text, runs[2].bold}).to_equal {2, 2, 'cd', true}
+      expect({runs[3].col, runs[3].cols, runs[3].text, runs[3].bold}).to_equal {4, 4, 'ef  ', false}
+  - it starts a run where each of the attributes changes:
+      term = lvterm.new(2, 16)
+      term:write 'a\27[3mb\27[5mc\27[7md\27[8me\27[9mf\27[4mg\27[21mh'
+      runs = term:runs(0)
+      expect(#runs).to_be(9)
+      expect(runs[2].italic).to_be(true)
+      expect(runs[3].blink).to_be(true)
+      expect(runs[4].reverse).to_be(true)
+      expect(runs[5].conceal).to_be(true)
+      expect(runs[6].strike).to_be(true)
+      expect(runs[7].underline).to_be(1)
+      expect(runs[8].underline).to_be(2)
+  - it starts a run where a color changes, and keeps one where it does not:
+      term = lvterm.new(2, 12)
+      term:write '\27[31mab\27[31mcd\27[32mef\27[44mgh'
+      runs = term:runs(0)
+      expect(#runs).to_be(4)
+      expect({runs[1].text, runs[1].fg, runs[1].bg}).to_equal {'abcd', 1}
+      expect({runs[2].text, runs[2].fg, runs[2].bg}).to_equal {'ef', 2}
+      expect({runs[3].text, runs[3].fg, runs[3].bg}).to_equal {'gh', 2, 4}
+  - it has the colors as a cell has them, a palette index or an RGB table:
+      term = lvterm.new(2, 8)
+      term:write '\27[38;5;202ma\27[38;2;1;2;3mb\27[48;2;4;5;6mc'
+      runs = term:runs(0)
+      expect(runs[1].fg).to_be(202)
+      expect(runs[2].fg).to_equal {red = 1, green = 2, blue = 3}
+      expect(runs[3].bg).to_equal {red = 4, green = 5, blue = 6}
+  - it keeps one run for the same RGB color, and starts one for another:
+      term = lvterm.new(2, 8)
+      term:write '\27[38;2;1;2;3mab\27[38;2;1;2;3mcd\27[38;2;1;2;4mef'
+      runs = term:runs(0)
+      expect(#runs).to_be(3)
+      expect(runs[1].text).to_be 'abcd'
+      expect(runs[2].text).to_be 'ef'
+  - it counts the columns of a wide character, and has the text of the cell that follows it as nothing:
+      term = lvterm.new(2, 6)
+      term:write '\228\184\173a'
+      expect(term:runs(0)).to_equal {
+         {col = 0, cols = 6, text = '\228\184\173a   ', bold = false, italic = false, blink = false,
+          reverse = false, conceal = false, strike = false, underline = 0},
+      }
+  - it keeps the right half of a wide character in the run of the character, which ends after it:
+      term = lvterm.new(2, 6)
+      term:write 'a\27[1m\228\184\173\27[0mb'
+      runs = term:runs(0)
+      expect(#runs).to_be(3)
+      expect({runs[2].col, runs[2].cols, runs[2].text}).to_equal {1, 2, '\228\184\173'}
+      expect({runs[3].col, runs[3].cols, runs[3].text}).to_equal {3, 3, 'b  '}
+  - it has the text of the row:
+      term = lvterm.new(3, 20)
+      term:write '\27[1mbold\27[0m plain \27[7mrev\27[0m\r\n\228\184\173\27[31mred'
+      expect(ran(term:runs(0))).to_be(term:row(0))
+      expect(ran(term:runs(1))).to_be(term:row(1))
+  - it is what the cells of the row say, for every column:
+      term = lvterm.new(4, 30)
+      term:write '\27[1;31mbold red\27[0m plain\27[38;2;9;8;7;44m rgb\27[0m\r\n\27[4munder\27[24m \228\184\173\27[7m\227\130\162\27[0mz\r\n\27[9;5mstrike blink'
+      for r = 0, 3 do
+         local ok, why = covers(term:runs(r), function(c) return term:cell(r, c) end)
+         expect(why).to_be(nil)
+         expect(ok).to_be(true)
+      end
+  - it makes the same runs of a row that was drawn after the terminal was resized:
+      term = lvterm.new(2, 4)
+      term:write 'ab\27[1mcd'
+      term:resize(2, 7)
+      term:write '\27[0mef'
+      expect(ran(term:runs(0))).to_be(term:row(0))
+      expect(#term:runs(0) >= 2).to_be(true)
+  - it diagnoses a row outside the screen:
+      term = lvterm.new(2, 5)
+      expect(term:runs(2)).to_raise 'outside a screen of 2,5'
+      expect(term:runs(-1)).to_raise 'outside a screen of 2,5'
+
 - describe resize:
   - it changes the size of the terminal:
       term = lvterm.new(2, 5)
@@ -290,6 +432,29 @@ specify lvterm:
       expect(term:scrollback_line(1)[1].width).to_be(2)
       expect(term:scrollback_line(1)[2].text).to_be ''
       expect(term:scrollback_line(1)[3].text).to_be 'a'
+  - it has runs for a line, as a row of the screen has, with the colors and attributes that they had:
+      term = lvterm.new(2, 8)
+      term:write '\27[1;31mab\27[0mcd\27[38;2;1;2;3mef\r\n\r\n'
+      runs = term:scrollback_runs(1)
+      expect(#runs).to_be(4)
+      expect({runs[1].col, runs[1].cols, runs[1].text, runs[1].bold, runs[1].fg}).to_equal {0, 2, 'ab', true, 1}
+      expect({runs[2].col, runs[2].cols, runs[2].text, runs[2].bold}).to_equal {2, 2, 'cd', false}
+      expect(runs[3].fg).to_equal {red = 1, green = 2, blue = 3}
+      expect({runs[4].col, runs[4].cols, runs[4].text}).to_equal {6, 2, '  '}
+  - it has runs that are what the cells of the line say, for every column:
+      term = lvterm.new(2, 12)
+      term:write '\27[1mbold\27[0m \228\184\173\27[44m x\r\n\27[7mrev\r\n\r\n\r\n'
+      for n = 1, term:scrollback_size() do
+         local line = term:scrollback_line(n)
+         local ok, why = covers(term:scrollback_runs(n), function(c) return line[c + 1] end)
+         expect(why).to_be(nil)
+         expect(ok).to_be(true)
+      end
+  - it diagnoses a line that is not in the scrollback:
+      term = lvterm.new(2, 4)
+      term:write 'a\r\nb\r\nc'
+      expect(term:scrollback_runs(0)).to_raise 'outside a scrollback of 1'
+      expect(term:scrollback_runs(2)).to_raise 'outside a scrollback of 1'
   - it keeps the lines of a long run, and the oldest is the first:
       term = lvterm.new(3, 12)
       for i = 1, 500 do
