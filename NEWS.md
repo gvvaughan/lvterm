@@ -2,6 +2,9 @@
 
 ## Noteworthy changes in release ?.? (????-??-??) [?]
 
+
+## Noteworthy changes in release 0.4 (2026-11-11) [stable]
+
 ### New Features
 
   - `runs(row)` gives a row of the screen as runs of cells that are drawn
