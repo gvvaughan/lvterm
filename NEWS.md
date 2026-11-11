@@ -12,7 +12,12 @@
     `fg` and `bg` of its cells, and the runs of a row cover all of its
     columns, in order.  The right half of a wide character is in the run of
     the character, though libvterm draws it as if it had no attributes.
-    Both backends give the same runs, and the same as the cells say.
+    Both backends give the same runs, and the same as the cells say.  The
+    `ffi` backend gives the same tables again for a row whose cells have
+    not changed, which are found out by comparing the cells that libvterm
+    gives, one call each, and not by building the runs again, so that
+    drawing a screen that has changed in a few rows costs little more
+    than reading it once.  The tables are not to be changed.
 
 
 ## Noteworthy changes in release 0.3 (2026-11-10) [stable]

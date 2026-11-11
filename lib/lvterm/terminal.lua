@@ -185,7 +185,10 @@ end
 --   add up to the width of the screen), `text` (the text of its cells, as
 --   `cell` gives them, so that the right half of a wide character has none),
 --   and the fields of `cell` that cells are alike in: `bold`, `italic`,
---   `blink`, `reverse`, `conceal`, `strike`, `underline`, `fg` and `bg`
+--   `blink`, `reverse`, `conceal`, `strike`, `underline`, `fg` and `bg`.  The
+--   tables are not to be changed, as the `ffi` backend gives the same ones
+--   again for a row whose cells have not changed since, so that a program
+--   can tell that a row is the same by comparing them.
 local function runs(self, row)
    check(self, row, 0)
    return self.handle:runs(row)

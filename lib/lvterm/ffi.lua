@@ -491,51 +491,43 @@ local function text_of(cell)
 end
 
 
--- The cells that are looked at while runs are made, so that none are made for each.
-local flip, flop = ffi.new 'VTermScreenCell', ffi.new 'VTermScreenCell'
-local where = ffi.new 'VTermPos'
-local size_rows, size_cols = ffi.new 'int[1]', ffi.new 'int[1]'
-
--- The runs of COLS cells, which FETCH gives, one at a time.  It is given the
--- column and a cell to fill, and gives back the cell, which may be that one.
-local function runs_of(cols, fetch)
+-- The runs of the first COLS cells of an array of them, which are drawn alike.
+local function runs_of(cells, cols)
    local out, run, parts, n = {}, nil, nil, 0
-   local cell, prev = flip, flop
+   local prev
    for col = 0, cols - 1 do
-      cell = fetch(col, cell)
+      local cell = cells[col]
       if run ~= nil and cell.chars[0] == 0xFFFFFFFF then
          -- The right half of a wide character is of the run that it is in, whatever libvterm says that
          -- it is drawn like, and does not start one, or end one for the cell after it.
          run.cols = run.cols + 1
-      elseif run ~= nil and alike(prev, cell) then
-         run.cols = run.cols + 1
-         n = n + 1
-         parts[n] = text_of(cell)
       else
-         if run ~= nil then
-            run.text = concat(parts, '', 1, n)
+         if run ~= nil and alike(prev, cell) then
+            run.cols = run.cols + 1
+            n = n + 1
+            parts[n] = text_of(cell)
+         else
+            if run ~= nil then
+               run.text = concat(parts, '', 1, n)
+            end
+            local attrs = cell.attrs
+            run = {
+               col = col,
+               cols = 1,
+               bold = attrs.bold == 1,
+               italic = attrs.italic == 1,
+               blink = attrs.blink == 1,
+               reverse = attrs.reverse == 1,
+               conceal = attrs.conceal == 1,
+               strike = attrs.strike == 1,
+               underline = attrs.underline,
+               fg = color(cell.fg),
+               bg = color(cell.bg),
+            }
+            parts, n = {text_of(cell)}, 1
+            out[#out + 1] = run
          end
-         local attrs = cell.attrs
-         run = {
-            col = col,
-            cols = 1,
-            bold = attrs.bold == 1,
-            italic = attrs.italic == 1,
-            blink = attrs.blink == 1,
-            reverse = attrs.reverse == 1,
-            conceal = attrs.conceal == 1,
-            strike = attrs.strike == 1,
-            underline = attrs.underline,
-            fg = color(cell.fg),
-            bg = color(cell.bg),
-         }
-         parts, n = {text_of(cell)}, 1
-         out[#out + 1] = run
-      end
-      if cell.chars[0] ~= 0xFFFFFFFF then
-         -- The cell that was looked at is kept to compare with the next, which is made in the other.
          prev = cell
-         cell = cell == flip and flop or flip
       end
    end
    if run ~= nil then
@@ -545,19 +537,50 @@ local function runs_of(cols, fetch)
 end
 
 
+-- Comparing the cells of a row with those that its runs were made of.
+ffi.cdef 'int memcmp(const void *a, const void *b, size_t n);'
+local memcmp = ffi.C.memcmp
+
+-- The cells of the row that is looked at, which are all that are got from libvterm for each, and
+-- which are the same bytes when a row is the same, as every field of a cell is written each time.
+local now, now_cols = ffi.new 'VTermScreenCell[1]', 0
+local where = ffi.new 'VTermPos'
+local size_rows, size_cols = ffi.new 'int[1]', ffi.new 'int[1]'
+
+
 --- What a row of the screen shows, as runs of cells that are drawn alike.
+-- The runs of a row are kept while its cells are the same, and are given again, the same
+-- table, so that a program can tell that a row is not changed.
 -- @function runs
 -- @int row line to read, from 0, which must be on the screen
 -- @treturn {table,...} the runs, as `lvterm.terminal.Terminal:runs` documents
 local function runs(self, row)
-   where.row = row
    C.vterm_get_size(self.vt, size_rows, size_cols)
+   local rows, cols = size_rows[0], size_cols[0]
+   if cols > now_cols then
+      now, now_cols = ffi.new('VTermScreenCell[?]', cols), cols
+   end
+   where.row = row
    local screen = self.screen
-   return runs_of(size_cols[0], function(col, cell)
+   for col = 0, cols - 1 do
       where.col = col
-      C.vterm_screen_get_cell(screen, where, cell)
-      return cell
-   end)
+      C.vterm_screen_get_cell(screen, where, now[col])
+   end
+
+   local kept = self.kept
+   if kept == nil or kept.rows ~= rows or kept.cols ~= cols then
+      kept = {rows = rows, cols = cols, cells = ffi.new('VTermScreenCell[?]', rows * cols), runs = {}}
+      self.kept = kept
+   end
+   local before = kept.runs[row]
+   local at = kept.cells + row * cols
+   if before ~= nil and memcmp(at, now, cols * CELL) == 0 then
+      return before
+   end
+   ffi.copy(at, now, cols * CELL)
+   local made = runs_of(now, cols)
+   kept.runs[row] = made
+   return made
 end
 
 
@@ -630,11 +653,12 @@ end
 -- @treturn {table,...} the runs, as `lvterm.terminal.Terminal:runs` documents
 local function scrollback_runs(self, n)
    local line = self.lines[self.last - n + 1]
-   local cells = ffi.new('VTermScreenCell[?]', max(line.n, 1))
+   local cells = ffi.new('VTermScreenCell[?]', max(line.cols, 1))
    ffi.copy(cells, line.bytes, line.n * CELL)
-   return runs_of(line.cols, function(col)
-      return col < line.n and cells[col] or BLANK
-   end)
+   for col = line.n, line.cols - 1 do
+      cells[col] = BLANK
+   end
+   return runs_of(cells, line.cols)
 end
 
 

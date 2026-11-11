@@ -112,7 +112,9 @@ as they give it, so that the right half of a wide character adds none. It has
 the fields of a cell that the cells of a run are alike in: `bold`, `italic`,
 `blink`, `reverse`, `conceal`, `strike`, `underline`, `fg` and `bg`. The right
 half of a wide character is in the run of the character, whatever it is drawn
-like.
+like.  The `ffi` backend keeps the runs of a row until its cells change, and gives the
+same table again, which is not to be changed, so a program that draws can leave a row
+that is the same as it was.
 
 
 ## 3. Scrollback and the alternate screen

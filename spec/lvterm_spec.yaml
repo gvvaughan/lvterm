@@ -367,6 +367,59 @@ specify lvterm:
       term = lvterm.new(2, 5)
       expect(term:runs(2)).to_raise 'outside a screen of 2,5'
       expect(term:runs(-1)).to_raise 'outside a screen of 2,5'
+  - it gives the same runs again for a row that has not changed, so that a program can tell:
+      if lvterm.backend ~= 'ffi' then pending 'the ffi backend keeps the runs of the rows' end
+      term = lvterm.new(4, 20)
+      term:write 'one\27[1mtwo\27[0m\r\nthree'
+      first, second = term:runs(0), term:runs(1)
+      term:write '\27[4;1Hfour'
+      expect(term:runs(0)).to_be(first)
+      expect(term:runs(1)).to_be(second)
+  - it gives other runs for a row that has changed, which are what it shows then:
+      term = lvterm.new(3, 20)
+      term:write 'one\r\ntwo'
+      before = term:runs(0)
+      term:write '\27[1;1H\27[31mX'
+      expect(term:runs(0)[1].text).to_be 'X'
+      expect(term:runs(0)[1].fg).to_be(1)
+      expect(term:runs(0)[2].text).to_be 'ne                 '
+      expect(before[1].text).to_be 'one                 '
+  - it gives other runs for a row that only the colors of changed:
+      term = lvterm.new(2, 10)
+      term:write 'abc'
+      before = term:runs(0)
+      term:write '\27[1;1H\27[44m'
+      term:write '\27[1;1Habc'
+      expect(term:runs(0)[1].bg).to_be(4)
+      expect(before[1].bg).to_be(nil)
+  - it is what the cells say after every write, which scrolls, clears, resizes and switches screens:
+      term = lvterm.new(4, 12)
+      local writes = {
+         'one\r\ntwo\r\nthree\r\nfour', '\27[1mbold\27[0m', '\r\nfive\r\nsix', '\27[2J', '\27[3;3Hmid',
+         '\27[31mred\27[44m on blue\27[0m', '\r\n\r\n\r\nx', '\27[?1049h\27[2J\27[1;1Halt', '\27[?1049l',
+         '\228\184\173\27[1m\227\130\162\27[0mz', '\27[2;1H\27[2L', '\27[3M', '\27[2;5r\27[5;1H\n\n', '\27[r',
+      }
+      for step = 1, (#writes) + 2 do
+         if step <= (#writes) then
+            term:write(writes[step])
+         elseif step == (#writes) + 1 then
+            term:resize(5, 15)
+         else
+            term:reset(true)
+         end
+         for r = 0, term:size() - 1 do
+            local ok, why = covers(term:runs(r), function(c) return term:cell(r, c) end)
+            expect(why).to_be(nil)
+            expect(ok).to_be(true)
+         end
+      end
+  - it has runs as wide as the screen after it is resized:
+      term = lvterm.new(2, 5)
+      term:write 'abc'
+      before = term:runs(0)
+      term:resize(2, 9)
+      expect(before[#before].col + before[#before].cols).to_be(5)
+      expect(term:runs(0)[#term:runs(0)].col + term:runs(0)[#term:runs(0)].cols).to_be(9)
 
 - describe resize:
   - it changes the size of the terminal:
