@@ -141,6 +141,38 @@ specify lvterm:
       term = lvterm.new(5, 20)
       expect(term:write('a'):write('b')).to_be(term)
       expect(term:text(0, 0, 2)).to_be 'ab'
+  - it draws a character that is written in two parts as one, wherever the parts are divided: |
+      for _, char in ipairs {'\195\169', '\226\148\130', '\240\159\152\128'} do
+         for cut = 1, #char - 1 do
+            term = lvterm.new(2, 10)
+            term:write('ab' .. char:sub(1, cut))
+            term:write(char:sub(cut + 1) .. 'cd')
+            expect(term:row(0)).to_contain('ab' .. char .. 'cd')
+         end
+      end
+  - it does not scroll when the last cell of the screen is written in two parts: |
+      term = lvterm.new(2, 4)
+      term:write '\27[1;1Htop\27[2;1H\226\148\128\226\148\128\226\148\128\226\148'
+      term:write '\128\27[1;1H'
+      expect(term:row(0)).to_contain 'top'
+      expect(term:row(1)).to_be '\226\148\128\226\148\128\226\148\128\226\148\128'
+  - it draws a character that is cut in three parts, one write at a time: |
+      term = lvterm.new(2, 10)
+      for _, part in ipairs {'a\226', '\148', '\130b'} do
+         term:write(part)
+      end
+      expect(term:row(0)).to_contain 'a\226\148\130b'
+  - it draws a replacement for the start of a character that the next write does not finish: |
+      term = lvterm.new(2, 10)
+      term:write 'a\226'
+      term:write 'b'
+      expect(term:row(0)).to_contain 'a\239\191\189b'
+  - it forgets the start of a character that is held when the terminal is reset: |
+      term = lvterm.new(2, 10)
+      term:write 'a\226'
+      term:reset()
+      term:write '\148\130'
+      expect(term:row(0)).not_to_contain '\226\148\130'
   - it moves the cursor when the program writes a sequence that moves it:
       term = lvterm.new(5, 20)
       term:write '\27[3;5Hx'

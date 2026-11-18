@@ -2,6 +2,16 @@
 
 ## Noteworthy changes in release ?.? (????-??-??) [?]
 
+### Bug fixes
+
+  - `write` holds back the first bytes of a character of UTF-8 whose other
+    bytes have not been written yet, and draws the character once they
+    have, as a terminal does.  A program that wrote a character in one
+    piece, but had it read in two by whatever fed `write`, such as the
+    reads of a pseudo-terminal, had it drawn as two characters of
+    replacement, and the screen scrolled if the character was at the end of
+    the last row.  `reset` forgets bytes that are held.
+
 
 ## Noteworthy changes in release 0.4 (2026-11-11) [stable]
 

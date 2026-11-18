@@ -107,12 +107,35 @@ local ENCODINGS = {x10 = false, utf8 = 1005, sgr = 1006, urxvt = 1015}
 -- @type Terminal
 
 
+-- How many bytes at the end of some, if any, are the start of a character
+-- of UTF-8 whose other bytes are still to come.  A program that writes a
+-- character in one piece can have it read in two, and libvterm draws the
+-- two parts as characters of their own, and scrolls if they are at the end of
+-- the last row, so they are held until the rest arrives, as a terminal does.
+local function incomplete(bytes)
+   local last = #bytes
+   for i = last, last > 3 and last - 3 or 1, -1 do
+      local b = bytes:byte(i)
+      if b < 0x80 then
+         return 0
+      elseif b >= 0xC0 then
+         local need = b >= 0xF0 and 4 or b >= 0xE0 and 3 or 2
+         return last - i + 1 < need and last - i + 1 or 0
+      end
+   end
+   return 0
+end
+
+
 --- Feed bytes to the terminal, as a program writes them.
 -- @function write
 -- @string bytes what the terminal receives
 -- @treturn Terminal the terminal
 local function write(self, bytes)
-   self.handle:write(bytes)
+   bytes = (self.held or '') .. bytes
+   local held = incomplete(bytes)
+   self.held = held > 0 and bytes:sub(-held) or nil
+   self.handle:write(held > 0 and bytes:sub(1, -held - 1) or bytes)
    return self
 end
 
@@ -134,6 +157,7 @@ end
 -- @bool[opt=true] hard also forget the contents of the screen
 -- @treturn Terminal the terminal
 local function reset(self, hard)
+   self.held = nil
    self.handle:reset(hard ~= false)
    return self
 end
