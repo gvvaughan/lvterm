@@ -522,6 +522,39 @@ local function title(self)
 end
 
 
+--- Take what has changed on the screen since the last call.
+-- A terminal that is made with `changes = true` keeps what a program changes on
+-- its screen, in order, until they are taken, so that a program that draws the
+-- screen again can leave what is the same as it was.  Each change is a table
+-- with a `kind`, and positions that are from 0, like the others:
+--
+--  * `'damage'`: the cells of the rectangle that begins at `row` and `col`, and
+--    is `rows` high and `cols` wide, have changed.
+--  * `'move'`: the cells that were at `from_row` and `from_col` are now where
+--    the rectangle that begins at `row` and `col`, and is `rows` high and `cols`
+--    wide, is, as when the screen scrolls.  Each scroll is one move, and the lines
+--    that it made are damaged after it, so that the changes in order, done to a
+--    copy of the screen, reproduce the screen.
+--  * `'cursor'`: the cursor is at `row` and `col`, which it was at `from_row`
+--    and `from_col` when the changes were last taken, and `visible` is whether
+--    it is shown.  It is the last, and only if the cursor is not where it was.
+--
+-- The most that are kept until they are taken is 1024 of damage and moves,
+-- after which they are one change of all of the screen.  The size of the terminal being changed, or
+-- the terminal being reset, is a change of all of it.
+-- @function changes
+-- @treturn table the changes, which are removed from the terminal
+-- @usage
+--    local term = lvterm.new(24, 80, {changes = true})
+--    term:write 'hello\n'
+--    for _, change in ipairs(term:changes()) do
+--       print(change.kind, change.row, change.col)
+--    end
+local function changes(self)
+   return self.handle:changes()
+end
+
+
 --- Take how many times the program rang the bell.
 -- @function bells
 -- @treturn int the bells since the last call, which the terminal forgets
@@ -580,6 +613,7 @@ local Terminal = {
    mouse_button = argscheck('lvterm.terminal.mouse_button (table, string, ?boolean, <?table>)', mouse_button),
    title = argscheck('lvterm.terminal.title (table)', title),
    bells = argscheck('lvterm.terminal.bells (table)', bells),
+   changes = argscheck('lvterm.terminal.changes (table)', changes),
    output = argscheck('lvterm.terminal.output (table)', output),
 }
 Terminal.__index = Terminal

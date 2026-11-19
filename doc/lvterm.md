@@ -90,6 +90,7 @@ about a position that is not on the screen is an error.
 | `term:cell(row, col)`        | returns the text, width and attributes of one cell |
 | `term:runs(row)`             | returns one row as runs of cells that are drawn alike |
 | `term:cursor()`              | returns the row and column of the cursor       |
+| `term:changes()`             | returns what changed on the screen since the last call |
 | `term:size()`                | returns the height and width                   |
 | `term:resize(rows, cols)`    | changes the size, and returns the terminal     |
 | `term:reset(hard)`           | returns to the initial state, and forgets the screen unless `hard` is `false` |
@@ -115,6 +116,46 @@ half of a wide character is in the run of the character, whatever it is drawn
 like.  The `ffi` backend keeps the runs of a row until its cells change, and gives the
 same table again, which is not to be changed, so a program that draws can leave a row
 that is the same as it was.
+
+### What changed on the screen
+
+A program that draws the screen again each time that a program writes to it
+can leave what is the same as it was, if the terminal is made to keep what
+changes:
+
+```lua
+local term = lvterm.new(24, 80, {changes = true})
+term:write 'hello\n'
+for _, change in ipairs(term:changes()) do
+   print(change.kind, change.row, change.col)
+end
+```
+
+`term:changes()` returns a list of tables, oldest first, and removes
+them. Each has a `kind`, and its positions are from 0 like the others:
+
+ * `'damage'`: the cells of the rectangle that begins at `row` and `col`, and
+   is `rows` high and `cols` wide, have changed.
+ * `'move'`: the cells that were at `from_row` and `from_col` are now where the
+   rectangle that begins at `row` and `col`, and is `rows` high and `cols`
+   wide, is. A screen that scrolls reports a move of the lines that stay for each
+   scroll, and a damage of only the new lines, so a program can shift what it
+   drew, and draw those. The changes in order, done to a copy of the screen,
+   reproduce the screen.
+ * `'cursor'`: the cursor is at `row` and `col`, which it was at `from_row` and
+   `from_col` when the changes were last taken, and `visible` is whether it
+   is shown. It is the last, there is one however far it went, and there is
+   none if it is where it was.
+
+The terminal being resized, reset, or switched to the other screen is a damage
+of all of it, and so is what remains when more than 1024 changes were made
+since they were taken, so a program that does not read them for a while does not make
+the terminal grow.
+
+The `ffi` backend passes the rectangles that libvterm passes in the registers
+that x86-64 and arm64 pass them in, so it keeps changes there, except for
+Windows. Anywhere else `lvterm.new` with `changes = true` fails, and the
+`core` backend does it.
 
 
 ## 3. Scrollback and the alternate screen

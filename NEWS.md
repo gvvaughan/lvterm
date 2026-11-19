@@ -2,6 +2,23 @@
 
 ## Noteworthy changes in release ?.? (????-??-??) [?]
 
+### New Features
+
+  - `lvterm.new(rows, cols, {changes = true})` makes a terminal that keeps
+    what a program changes on its screen, and `changes()` returns that, in
+    order, as the cells that have changed (`damage`), the lines that moved,
+    for each scroll that was made, with the new lines damaged after it
+    (`move`), and where the cursor went (`cursor`), once, and only if it
+    moved.  A program that draws the screen can leave the rows that have
+    not changed, and shift those that scrolled, and what is then drawn is
+    always the screen.  More than 1024 changes kept, a change of its size,
+    a reset and a switch of screen are a damage of all of it.  Both
+    backends return the same changes.  The `ffi` backend reads the
+    rectangles that libvterm passes by value from the registers that
+    x86-64 and arm64 pass them in, which LuaJIT callbacks cannot take, so
+    it cannot keep them on other platforms, nor on Windows, and fails to
+    make the terminal.
+
 ### Bug fixes
 
   - `write` holds back the first bytes of a character of UTF-8 whose other

@@ -62,6 +62,20 @@ typedef struct
 	VTermScreenCell	cells[1];
 } Line;
 
+/* A change of the screen, that is kept until `changes` takes it: a damage has
+   the rectangle in V, a move has the rectangle that it moved to and then the
+   row and column that it moved from. */
+enum { CHANGE_DAMAGE = 1, CHANGE_MOVE };
+
+typedef struct
+{
+	int		kind;
+	int		v[6];
+} Change;
+
+/* The most changes that are kept, after which all of the screen is damaged. */
+#define MOST_CHANGES 1024
+
 typedef struct
 {
 	VTerm		*vt;
@@ -91,6 +105,16 @@ typedef struct
 	char		*out;		/* what the terminal sends back */
 	size_t		outlen;
 	size_t		outcap;
+
+	int		recording;	/* the changes of the screen are kept */
+	Change		*changes;
+	size_t		nchanges;
+	size_t		changecap;
+	int		overflow;	/* more were made than are kept */
+	int		moved;		/* the cursor moved since they were taken */
+	int		from_row, from_col;
+	int		row, col;
+	int		visible;
 } Handle;
 
 
@@ -398,12 +422,94 @@ sent(const char *bytes, size_t len, void *user)
 }
 
 
+/* Keep a change, unless there are too many, when all of the screen is what
+   has changed. */
+static void
+record(Handle *h, int kind, int a, int b, int c, int d, int e, int f)
+{
+	Change *ch;
+
+	if (h->nchanges >= MOST_CHANGES)
+	{
+		h->overflow = 1;
+		return;
+	}
+	if (h->nchanges == h->changecap)
+	{
+		size_t cap = h->changecap ? h->changecap * 2 : 16;
+		Change *p = (Change *) realloc(h->changes, cap * sizeof (Change));
+
+		if (p == NULL)
+		{
+			h->overflow = 1;
+			return;
+		}
+		h->changes = p;
+		h->changecap = cap;
+	}
+	ch = &h->changes[h->nchanges++];
+	ch->kind = kind;
+	ch->v[0] = a; ch->v[1] = b; ch->v[2] = c;
+	ch->v[3] = d; ch->v[4] = e; ch->v[5] = f;
+}
+
+
+static int
+damage(VTermRect rect, void *user)
+{
+	Handle *h = (Handle *) user;
+
+	if (h->recording)
+		record(h, CHANGE_DAMAGE, rect.start_row, rect.start_col,
+		       rect.end_row - rect.start_row,
+		       rect.end_col - rect.start_col, 0, 0);
+	return 1;
+}
+
+
+static int
+moverect(VTermRect dest, VTermRect src, void *user)
+{
+	Handle *h = (Handle *) user;
+
+	if (h->recording)
+		record(h, CHANGE_MOVE, dest.start_row, dest.start_col,
+		       dest.end_row - dest.start_row,
+		       dest.end_col - dest.start_col,
+		       src.start_row, src.start_col);
+	return 1;
+}
+
+
+/* A cursor that moves for every character is not a change for each, so what
+   is kept is where it was when the changes were last taken, and where it is. */
+static int
+movecursor(VTermPos pos, VTermPos oldpos, int visible, void *user)
+{
+	Handle *h = (Handle *) user;
+
+	if (h->recording)
+	{
+		if (!h->moved)
+		{
+			h->moved = 1;
+			h->from_row = oldpos.row;
+			h->from_col = oldpos.col;
+		}
+		h->row = pos.row;
+		h->col = pos.col;
+		h->visible = visible != 0;
+	}
+	return 1;
+}
+
+
 /* Must stay for as long as a terminal does, as libvterm keeps the pointer. */
 static const VTermScreenCallbacks callbacks =
 {
-	NULL,		/* damage */
-	NULL,		/* moverect */
-	NULL,		/* movecursor */
+	damage,
+	moverect,
+	movecursor,
 	settermprop,
 	bell,
 	NULL,		/* resize */
@@ -452,12 +558,26 @@ core_new(lua_State *L)
 			h->limit = (size_t) luaL_checkinteger(L, -1);
 		}
 		lua_pop(L, 1);
+
+		lua_getfield(L, 3, "changes");
+		h->recording = lua_toboolean(L, -1);
+		lua_pop(L, 1);
 	}
 
 	vterm_output_set_callback(h->vt, sent, h);
 	vterm_screen_set_callbacks(h->screen, &callbacks, h);
 	vterm_screen_enable_altscreen(h->screen, 1);
+	/* Damage is merged by row, and each scroll is reported as it is made, as a
+	   move and the damage of the lines that it makes.  The mode that merges
+	   scrolls adds those that are made before the changes are taken, whichever
+	   way they go, and so reports a move of lines that a scroll the other way
+	   lost. */
+	if (h->recording)
+		vterm_screen_set_damage_merge(h->screen, VTERM_DAMAGE_ROW);
 	vterm_screen_reset(h->screen, 1);
+	h->nchanges = 0;
+	h->overflow = 0;
+	h->moved = 0;
 	return 1;
 }
 
@@ -476,6 +596,8 @@ handle_gc(lua_State *L)
 		h->ring = NULL;
 		free(h->out);
 		h->out = NULL;
+		free(h->changes);
+		h->changes = NULL;
 		free(h->title);
 		h->title = NULL;
 		free(h->partial);
@@ -514,8 +636,12 @@ handle_resize(lua_State *L)
 {
 	Handle *h = checkhandle(L);
 
-	vterm_set_size(h->vt, (int) luaL_checkinteger(L, 2),
-		       (int) luaL_checkinteger(L, 3));
+	int rows = (int) luaL_checkinteger(L, 2);
+	int cols = (int) luaL_checkinteger(L, 3);
+
+	vterm_set_size(h->vt, rows, cols);
+	if (h->recording)
+		record(h, CHANGE_DAMAGE, 0, 0, rows, cols, 0, 0);
 	return 0;
 }
 
@@ -1024,6 +1150,88 @@ handle_title(lua_State *L)
 }
 
 
+/* Set the field NAME of the table at the top of the stack to the integer N. */
+static void
+setint(lua_State *L, const char *name, int n)
+{
+	lua_pushinteger(L, n);
+	lua_setfield(L, -2, name);
+}
+
+
+/***
+Take what has changed on the screen since the last call.
+@function changes
+@treturn table the changes, oldest first, as `lvterm.terminal.Terminal:changes` documents
+*/
+static int
+handle_changes(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+	int n = 0;
+	size_t i;
+
+	if (!h->recording)
+		return luaL_error(L, "the changes of the screen are kept only by a terminal that is made with `changes = true`");
+
+	lua_newtable(L);
+	if (h->overflow)
+	{
+		int rows, cols;
+
+		vterm_get_size(h->vt, &rows, &cols);
+		lua_newtable(L);
+		lua_pushliteral(L, "damage");
+		lua_setfield(L, -2, "kind");
+		setint(L, "row", 0);
+		setint(L, "col", 0);
+		setint(L, "rows", rows);
+		setint(L, "cols", cols);
+		lua_rawseti(L, -2, ++n);
+	}
+	else
+	{
+		for (i = 0; i < h->nchanges; i++)
+		{
+			const Change *ch = &h->changes[i];
+
+			lua_newtable(L);
+			lua_pushstring(L, ch->kind == CHANGE_MOVE ? "move" : "damage");
+			lua_setfield(L, -2, "kind");
+			setint(L, "row", ch->v[0]);
+			setint(L, "col", ch->v[1]);
+			setint(L, "rows", ch->v[2]);
+			setint(L, "cols", ch->v[3]);
+			if (ch->kind == CHANGE_MOVE)
+			{
+				setint(L, "from_row", ch->v[4]);
+				setint(L, "from_col", ch->v[5]);
+			}
+			lua_rawseti(L, -2, ++n);
+		}
+	}
+
+	if (h->moved && (h->row != h->from_row || h->col != h->from_col))
+	{
+		lua_newtable(L);
+		lua_pushliteral(L, "cursor");
+		lua_setfield(L, -2, "kind");
+		setint(L, "row", h->row);
+		setint(L, "col", h->col);
+		setint(L, "from_row", h->from_row);
+		setint(L, "from_col", h->from_col);
+		lua_pushboolean(L, h->visible);
+		lua_setfield(L, -2, "visible");
+		lua_rawseti(L, -2, ++n);
+	}
+
+	h->nchanges = 0;
+	h->overflow = 0;
+	h->moved = 0;
+	return 1;
+}
+
+
 /***
 Take how many times the program rang the bell.
 @function bells
@@ -1093,6 +1301,7 @@ static const luaL_Reg handle_methods[] =
 	{"focus_reporting",	handle_focus_reporting},
 	{"title",	handle_title},
 	{"bells",	handle_bells},
+	{"changes",	handle_changes},
 	{NULL,		NULL}
 };
 

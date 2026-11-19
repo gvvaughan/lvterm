@@ -124,6 +124,7 @@ VTermScreen *vterm_obtain_screen(VTerm *vt);
 void   vterm_screen_set_callbacks(VTermScreen *screen, const VTermScreenCallbacks *callbacks, void *user);
 void   vterm_screen_enable_altscreen(VTermScreen *screen, int altscreen);
 void   vterm_screen_flush_damage(VTermScreen *screen);
+void   vterm_screen_set_damage_merge(VTermScreen *screen, int size);
 void   vterm_screen_reset(VTermScreen *screen, int hard);
 int    vterm_screen_get_cell(const VTermScreen *screen, VTermPos pos, VTermScreenCell *cell);
 void   vterm_screen_convert_color_to_rgb(const VTermScreen *screen, VTermColor *col);
@@ -328,6 +329,61 @@ local function rang(user)
 end
 
 
+-- What a program changed on the screen, which a handle keeps, in order, for `changes`.  libvterm passes the
+-- rectangles and positions of these callbacks by value, which a LuaJIT callback cannot take, but where the
+-- calling convention passes a structure of up to 16 bytes in integer registers (x86-64 and arm64, except for
+-- Windows) it is the same as the registers of integers that are declared here instead: a rectangle is two
+-- of 64 bits, and a position is one.  Those are copied to where their 32 bit fields are read.
+local CHANGES = (ffi.arch == 'x64' or ffi.arch == 'arm64') and ffi.os ~= 'Windows'
+local box = ffi.new 'int64_t[4]'
+local ints = ffi.cast('int32_t *', box)
+
+-- The most that are kept until they are taken, after which all of the screen is what has changed.
+local MOST = 1024
+
+local function record(h, event)
+   local n = h.nevents + 1
+   if n > MOST then
+      h.overflow = true
+   else
+      h.nevents, h.events[n] = n, event
+   end
+end
+
+local function damaged(lo, hi, user)
+   local h = handle_of(user)
+   if h.recording then
+      box[0], box[1] = lo, hi
+      record(h, {kind = 'damage', row = ints[0], col = ints[2], rows = ints[1] - ints[0], cols = ints[3] - ints[2]})
+   end
+   return 1
+end
+
+local function moved(dlo, dhi, slo, shi, user)
+   local h = handle_of(user)
+   if h.recording then
+      box[0], box[1], box[2], box[3] = dlo, dhi, slo, shi
+      record(h, {kind = 'move', row = ints[0], col = ints[2], rows = ints[1] - ints[0], cols = ints[3] - ints[2],
+                 from_row = ints[4], from_col = ints[6]})
+   end
+   return 1
+end
+
+-- A cursor that moves for every character is not a change for each, so what is kept is where it was when the
+-- changes were last taken, and where it is.
+local function cursor_moved(pos, old, visible, user)
+   local h = handle_of(user)
+   if h.recording then
+      box[0], box[1] = pos, old
+      if not h.moved then
+         h.moved, h.from_row, h.from_col = true, ints[2], ints[3]
+      end
+      h.row, h.col, h.visible = ints[0], ints[1], visible ~= 0
+   end
+   return 1
+end
+
+
 local function sent(bytes, len, user)
    local h = handle_of(user)
    h.out[#h.out + 1] = ffi.string(bytes, len)
@@ -343,6 +399,16 @@ local forgotten_cb = ffi.cast('int (*)(void *)', forgotten)
 local property_cb = ffi.cast('int (*)(int, VTermValue *, void *)', property)
 local bell_cb = ffi.cast('int (*)(void *)', rang)
 local sent_cb = ffi.cast('VTermOutputCallback *', sent)
+local damaged_cb, moved_cb, cursor_moved_cb
+if CHANGES then
+   -- Kept as long as the process lives, like the others.
+   damaged_cb = ffi.cast('int (*)(int64_t, int64_t, void *)', damaged)
+   moved_cb = ffi.cast('int (*)(int64_t, int64_t, int64_t, int64_t, void *)', moved)
+   cursor_moved_cb = ffi.cast('int (*)(int64_t, int64_t, int, void *)', cursor_moved)
+   callbacks.damage = ffi.cast('void *', damaged_cb)
+   callbacks.moverect = ffi.cast('void *', moved_cb)
+   callbacks.movecursor = ffi.cast('void *', cursor_moved_cb)
+end
 callbacks.sb_pushline = pushed_cb
 callbacks.sb_popline = popped_cb
 callbacks.sb_clear = forgotten_cb
@@ -358,9 +424,13 @@ local Handle
 -- @int rows height in lines
 -- @int cols width in columns
 -- @tparam[opt] table options `scrollback`, the most lines to keep, which is
---   all of them if it is not given
+--   all of them if it is not given, and `changes`, which is true to keep what
+--   changes on the screen for `changes`
 -- @treturn Handle
 local function new(rows, cols, options)
+   if options and options.changes and not CHANGES then
+      error('the ffi backend cannot provide the changes of the screen on this platform: use the core backend', 3)
+   end
    local vt = ffi.gc(C.vterm_new(rows, cols), C.vterm_free)
    C.vterm_set_utf8(vt, 1)
 
@@ -377,6 +447,8 @@ local function new(rows, cols, options)
       mouse = 0,
       focusing = false,
       rung = 0,
+      recording = options and options.changes or false,
+      events = {}, nevents = 0, overflow = false,
    }, Handle)
    handles[serial] = self
 
@@ -384,7 +456,14 @@ local function new(rows, cols, options)
    C.vterm_output_set_callback(vt, sent_cb, user)
    C.vterm_screen_set_callbacks(self.screen, callbacks, user)
    C.vterm_screen_enable_altscreen(self.screen, 1)
+   if self.recording then
+      -- Damage is merged by row, and each scroll is reported as it is made, as a move and the damage of the lines that it
+      -- makes.  The mode that merges scrolls, which is 3, adds those that are made before the changes are taken, whichever
+      -- way they go, and so reports a move of lines that a scroll the other way lost.
+      C.vterm_screen_set_damage_merge(self.screen, 1)
+   end
    C.vterm_screen_reset(self.screen, 1)
+   self.nevents, self.events, self.overflow, self.moved = 0, {}, false, false
    return self
 end
 
@@ -407,6 +486,9 @@ end
 -- @int cols new width in columns
 local function resize(self, rows, cols)
    C.vterm_set_size(self.vt, rows, cols)
+   if self.recording then
+      record(self, {kind = 'damage', row = 0, col = 0, rows = rows, cols = cols})
+   end
 end
 
 
@@ -755,6 +837,28 @@ local function title(self)
 end
 
 
+--- Take what has changed on the screen since the last call.
+-- @function changes
+-- @treturn table the changes, oldest first, as `lvterm.terminal.Terminal:changes` documents
+local function changes(self)
+   if not self.recording then
+      error('the changes of the screen are kept only by a terminal that is made with `changes = true`', 3)
+   end
+   local events = self.events
+   if self.overflow then
+      local rows, cols = ffi.new 'int[1]', ffi.new 'int[1]'
+      C.vterm_get_size(self.vt, rows, cols)
+      events = {{kind = 'damage', row = 0, col = 0, rows = rows[0], cols = cols[0]}}
+   end
+   if self.moved and (self.row ~= self.from_row or self.col ~= self.from_col) then
+      events[#events + 1] = {kind = 'cursor', row = self.row, col = self.col, from_row = self.from_row,
+                             from_col = self.from_col, visible = self.visible}
+   end
+   self.events, self.nevents, self.overflow, self.moved = {}, 0, false, false
+   return events
+end
+
+
 --- Take how many times the program rang the bell.
 -- @function bells
 -- @treturn int the number of bells since the last call, which is forgotten
@@ -791,6 +895,7 @@ Handle = {
    mouse_mode = mouse_mode,
    title = title,
    bells = bells,
+   changes = changes,
 }
 Handle.__index = Handle
 

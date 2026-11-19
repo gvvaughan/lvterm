@@ -118,3 +118,27 @@ describe a backend that reports what the program says of itself:
       if not both_backends then pending 'needs both backends' end
       expect(differences('\27[?1000h\27[?1002h')).to_equal {}
       expect(differences('\27[?1003h\27[?1003l')).to_equal {}
+
+describe a backend that keeps what changes on the screen:
+- context when the program writes plain text, wrapped and scrolled:
+  - it keeps the same changes as the other backend: |
+      if not both_backends then pending 'needs both backends' end
+      expect(change_differences(noise(0) .. string.rep('wrap around this line ', 90), 5, 20)).to_equal {}
+- context when the program scrolls by a few lines at a time:
+  - it keeps the same changes as the other backend: |
+      if not both_backends then pending 'needs both backends' end
+      expect(change_differences('one\r\ntwo\r\nthree\r\nfour\r\nfive\r\nsix', 5, 20)).to_equal {}
+      expect(change_differences('\27[2;5r\27[2;1Hone\r\ntwo\r\nsix\r\nten\r\nend\27[2;1H\27[2L\27[1M\27[3@\27[2P', 8, 20)).to_equal {}
+- context when the program switches to the alternate screen and back:
+  - it keeps the same changes as the other backend: |
+      if not both_backends then pending 'needs both backends' end
+      expect(change_differences('main\27[?1049h\27[2Jalt\27[?1049l back')).to_equal {}
+- context when the terminal is resized between writes:
+  - it keeps the same changes as the other backend: |
+      if not both_backends then pending 'needs both backends' end
+      expect(change_differences('abcdefghij\r\nklmnopqrst', 5, 20, 'uvw', {3, 8})).to_equal {}
+- context when the program writes a long stream of everything:
+  - it keeps the same changes as the other backend: |
+      if not both_backends then pending 'needs both backends' end
+      expect(change_differences(noise(3000), 24, 80)).to_equal {}
+      expect(change_differences(noise(3000), 7, 13)).to_equal {}

@@ -1,0 +1,175 @@
+before:
+  lvterm = require 'lvterm'
+
+  -- Whether the backend can keep changes, which the ffi backend cannot where it cannot take a structure in
+  -- a register.
+  function cannot()
+     local ok = pcall(lvterm.new, 2, 2, {changes = true})
+     return not ok
+  end
+
+  -- A terminal that keeps its changes, with nothing in them yet.
+  function kept(rows, cols)
+     if cannot() then pending 'the backend cannot keep changes here' end
+     local term = lvterm.new(rows, cols, {changes = true})
+     term:changes()
+     return term
+  end
+
+  -- The changes of the terminal, each as `kind row,col rowsxcols`, and `from row,col` of a move, a cursor
+  -- being as `cursor row,col from row,col`.
+  function taken(term)
+     local out = {}
+     for _, c in ipairs(term:changes()) do
+        if c.kind == 'move' then
+           out[#out + 1] = string.format('move %d,%d %dx%d from %d,%d', c.row, c.col, c.rows, c.cols, c.from_row, c.from_col)
+        elseif c.kind == 'cursor' then
+           out[#out + 1] = string.format('cursor %d,%d from %d,%d%s', c.row, c.col, c.from_row, c.from_col,
+                                         c.visible and '' or ' hidden')
+        else
+           out[#out + 1] = string.format('%s %d,%d %dx%d', c.kind, c.row, c.col, c.rows, c.cols)
+        end
+     end
+     return out
+  end
+
+specify the changes of the screen:
+- describe a terminal that is not made to keep them:
+  - it raises an error unless the terminal is made to record them: |
+      local term = lvterm.new(5, 10)
+      expect(term:changes()).to_raise 'made with `changes = true`'
+  - it is not made with a changes that is not a boolean: |
+      expect(lvterm.new(5, 10, {changes = 'yes'})).to_raise 'must be a boolean'
+- describe a terminal that keeps them:
+  - it has none until a program writes: |
+      local term = kept(5, 10)
+      expect(taken(term)).to_equal {}
+  - it has the cells that a program wrote, and where the cursor went: |
+      local term = kept(5, 10)
+      term:write 'ab'
+      expect(taken(term)).to_equal {'damage 0,0 1x2', 'cursor 0,2 from 0,0'}
+  - it empties the list that it returns: |
+      local term = kept(5, 10)
+      term:write 'ab'
+      term:changes()
+      expect(taken(term)).to_equal {}
+  - it has the cursor once, however far it went, from where it was when the changes were last taken: |
+      local term = kept(5, 10)
+      term:write 'abc\r\ndef\r\nghi'
+      local cursors = 0
+      for _, line in ipairs(taken(term)) do
+         if string.match(line, '^cursor') then
+            cursors = cursors + 1
+         end
+      end
+      expect(cursors).to_be(1)
+      term:write 'jkl'
+      expect(taken(term)).to_equal {'damage 2,3 1x3', 'cursor 2,6 from 2,3'}
+  - it has no cursor if that is back where it was: |
+      local term = kept(5, 10)
+      term:write 'a\27[1D'
+      for _, line in ipairs(taken(term)) do
+         expect(line).not_to_match '^cursor'
+      end
+  - it has whether the cursor is shown: |
+      local term = kept(5, 10)
+      term:write '\27[?25l\27[2;3H'
+      expect(taken(term)).to_equal {'cursor 1,2 from 0,0 hidden'}
+- describe a program that scrolls:
+  - it reports a move of the lines, and the damage of only the new line: |
+      local term = kept(5, 10)
+      term:write '\27[1S'
+      expect(taken(term)).to_equal {'move 0,0 4x10 from 1,0', 'damage 4,0 1x10'}
+  - it reports a move for each line feed that scrolled: |
+      local term = kept(5, 10)
+      term:write '1\r\n2\r\n3\r\n4\r\n5\r\n'
+      term:changes()
+      term:write 'a\r\nb\r\n'
+      local moves = {}
+      for _, c in ipairs(term:changes()) do
+         if c.kind == 'move' then
+            moves[#moves + 1] = c
+         end
+      end
+      expect(#moves).to_be(2)
+      expect(moves[1].from_row - moves[1].row).to_be(1)
+      expect(moves[2].from_row - moves[2].row).to_be(1)
+  - it reports a move for each scroll, and not the sum of those that go both ways: |
+      local term = kept(8, 24)
+      term:write '1\r\n2\r\n3\r\n4\r\n5\r\n6\r\n7\r\n8'
+      term:changes()
+      term:write '\27[1S\27[2T'
+      local moves = 0
+      for _, c in ipairs(term:changes()) do
+         if c.kind == 'move' then
+            moves = moves + 1
+         end
+      end
+      expect(moves).to_be(2)
+  - it reproduces the screen when the changes are done to a copy of it, after scrolls that go both ways: |
+      local term = kept(8, 24)
+      -- What a program that draws keeps: the rows as they were, those that the changes report as changed, and
+      -- those moved, so that the rows that are not reported are as they were, and the others are read again.
+      local copy, dirty = {}, {}
+      for r = 0, 7 do
+         copy[r] = term:row(r)
+      end
+      local streams = {
+         '1\r\n2\r\n3\r\n4\r\n5\r\n6\r\n7\r\n8',
+         '\27[1S\27[2T',
+         '\27[2T\27[1S\27[3S',
+         '\27[3;6r\27[6;1H\r\n\r\nin region\27[3;1H\27[1T\27[2L\27[1M\27[r',
+         '\27[H\27[2L\27[3M\27[3@\27[2P\27[4X',
+         string.rep('wrap around this line ', 20),
+         '\27[?1049h\27[2Jalternate\27[?1049l',
+         string.rep('line\r\n', 30) .. '\27[1T\27[1S',
+         '\27[2J\27[H',
+      }
+      for _, bytes in ipairs(streams) do
+         term:write(bytes)
+         for _, c in ipairs(term:changes()) do
+            if c.kind == 'damage' then
+               for r = c.row, c.row + c.rows - 1 do
+                  dirty[r] = true
+               end
+            elseif c.kind == 'move' then
+               local rows, flags = {}, {}
+               for i = 0, c.rows - 1 do
+                  rows[i], flags[i] = copy[c.from_row + i], dirty[c.from_row + i]
+               end
+               for i = 0, c.rows - 1 do
+                  copy[c.row + i], dirty[c.row + i] = rows[i], flags[i]
+               end
+            end
+         end
+         for r = 0, 7 do
+            if dirty[r] then
+               copy[r], dirty[r] = term:row(r), nil
+            end
+            expect(copy[r]).to_be(term:row(r))
+         end
+      end
+- describe a program that does not scroll but writes a lot:
+  - it returns all of the screen as damaged once there are more than it keeps: |
+      local term = kept(5, 10)
+      for _ = 1, 1500 do
+         term:write 'x'
+      end
+      local changes = taken(term)
+      expect(changes[1]).to_be 'damage 0,0 5x10'
+      expect(#changes <= 2).to_be(true)
+- describe the terminal changing:
+  - it has all of the screen when it is resized: |
+      local term = kept(5, 10)
+      term:resize(6, 12)
+      expect(taken(term)[1]).to_be 'damage 0,0 6x12'
+  - it has all of the screen when it is reset: |
+      local term = kept(5, 10)
+      term:write 'abc'
+      term:changes()
+      term:reset(true)
+      expect(taken(term)[1]).to_be 'damage 0,0 5x10'
+  - it has all of the screen when the program switches to the other one: |
+      local term = kept(5, 10)
+      term:write '\27[?1049h'
+      expect(taken(term)[1]).to_be 'damage 0,0 5x10'

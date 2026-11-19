@@ -76,6 +76,61 @@ local function run_differences(x, y)
 end
 
 
+-- The changes that a terminal has kept, as text that can be compared, one for each change.
+local function described(term)
+   local out = {}
+   for i, c in ipairs(term:changes()) do
+      out[i] = string.format('%s %s,%s %sx%s from %s,%s %s', c.kind, c.row, c.col, c.rows, c.cols, c.from_row, c.from_col,
+                             tostring(c.visible))
+   end
+   return out
+end
+
+
+--- What the `ffi` and `core` backends disagree about the changes of the screen.
+-- Each is made a terminal that keeps its changes, fed the same bytes, then resized,
+-- and fed more, and the changes that each has are compared after every step.
+-- @string stream what to write to both
+-- @int[opt=24] rows height in lines
+-- @int[opt=80] cols width in columns
+-- @string[opt] more written after resizing to `resize`
+-- @tparam[opt] {int,int} resize new height and width, between the writes
+-- @treturn {string,...} descriptions of the differences, none if the same
+function change_differences(stream, rows, cols, more, resize)
+   rows, cols = rows or 24, cols or 80
+
+   local a = terminal.new(ffi_backend.new(rows, cols, {changes = true}), rows, cols)
+   local b = terminal.new(core_backend.new(rows, cols, {changes = true}), rows, cols)
+   local diffs = {}
+   local function compare(step)
+      local x, y = described(a), described(b)
+      if #x ~= #y then
+         diffs[#diffs + 1] = string.format('%s: %d changes against %d', step, #x, #y)
+      end
+      for i = 1, math.min(#x, #y) do
+         if x[i] ~= y[i] then
+            diffs[#diffs + 1] = string.format('%s, change %d: %s against %s', step, i, x[i], y[i])
+         end
+      end
+   end
+
+   a:write(stream)
+   b:write(stream)
+   compare 'the stream'
+   if resize then
+      a:resize(resize[1], resize[2])
+      b:resize(resize[1], resize[2])
+      compare 'the resize'
+   end
+   if more then
+      a:write(more)
+      b:write(more)
+      compare 'the rest'
+   end
+   return diffs
+end
+
+
 --- What the `ffi` and `core` backends disagree about.
 -- Each is made a terminal of the same size, fed the same bytes, then
 -- resized, and fed more, and their screens, cursors and replies compared.

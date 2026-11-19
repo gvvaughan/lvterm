@@ -115,7 +115,8 @@ end
 -- @int[opt=80] cols width in columns
 -- @tparam[opt] table options `scrollback`, the most lines to keep of those
 --   that scroll off the top, which is as many as there is memory for if it
---   is not given, and none if it is 0
+--   is not given, and none if it is 0, and `changes`, which is true to keep
+--   what changes on the screen, for `lvterm.terminal.Terminal:changes`
 -- @treturn lvterm.terminal.Terminal
 local function new(rows, cols, options)
    rows, cols = rows or 24, cols or 80
@@ -125,6 +126,10 @@ local function new(rows, cols, options)
    local scrollback = options and options.scrollback
    if scrollback ~= nil and (type(scrollback) ~= 'number' or scrollback < 0 or scrollback % 1 ~= 0) then
       error(format('the scrollback of a terminal is a number of lines, not %s', tostring(scrollback)), 2)
+   end
+   local changes = options and options.changes
+   if changes ~= nil and type(changes) ~= 'boolean' then
+      error(format('the `changes` of a terminal must be a boolean, not %s', tostring(changes)), 2)
    end
    return terminal.new(backend.new(rows, cols, options), rows, cols)
 end

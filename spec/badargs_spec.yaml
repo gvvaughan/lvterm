@@ -130,3 +130,7 @@ specify lvterm:
 - describe output:
   - context with bad arguments:
       badargs.diagnose('lvterm.terminal.output (table)', term.output)
+
+- describe changes:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.changes (table)', term.changes)
