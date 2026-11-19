@@ -87,6 +87,58 @@ local function described(term)
 end
 
 
+--- What the `ffi` and `core` backends disagree about the state of a terminal.
+-- Each is made a terminal, fed the same bytes, with reflow on or off, and then resized,
+-- and the pen, the information of each line and where each line ends compared.
+-- @string stream what to write to both
+-- @int[opt=6] rows height in lines
+-- @int[opt=20] cols width in columns
+-- @bool[opt] reflow whether lines are made again when the width changes
+-- @tparam[opt] {int,int} resize new height and width, after the stream
+-- @treturn {string,...} descriptions of the differences, none if the same
+function state_differences(stream, rows, cols, reflow, resize)
+   rows, cols = rows or 6, cols or 20
+   local a = terminal.new(ffi_backend.new(rows, cols), rows, cols)
+   local b = terminal.new(core_backend.new(rows, cols), rows, cols)
+   for _, t in ipairs {a, b} do
+      t:set_reflow(reflow or false)
+      t:write(stream)
+      if resize then
+         t:resize(resize[1], resize[2])
+      end
+   end
+   if resize then
+      rows, cols = resize[1], resize[2]
+   end
+   local diffs = {}
+   local x, y = a:pen(), b:pen()
+   for _, field in ipairs {'bold', 'underline', 'italic', 'blink', 'reverse', 'conceal', 'strike', 'font'} do
+      if x[field] ~= y[field] then
+         diffs[#diffs + 1] = 'pen ' .. field
+      end
+   end
+   for _, field in ipairs {'fg', 'bg'} do
+      if not same_color(x[field], y[field]) then
+         diffs[#diffs + 1] = 'pen ' .. field
+      end
+   end
+   for row = 0, rows - 1 do
+      local i, j = a:line_info(row), b:line_info(row)
+      for _, field in ipairs {'doublewidth', 'doubleheight', 'continuation'} do
+         if i[field] ~= j[field] then
+            diffs[#diffs + 1] = string.format('line %d %s', row, field)
+         end
+      end
+      for col = 0, cols - 1 do
+         if a:is_eol(row, col) ~= b:is_eol(row, col) then
+            diffs[#diffs + 1] = string.format('end of line at %d,%d', row, col)
+         end
+      end
+   end
+   return diffs
+end
+
+
 --- What the `ffi` and `core` backends disagree about the selections of a program.
 -- Each is made a terminal that keeps them, fed the same bytes, then replies to
 -- the query that there is, and what is taken and sent back is compared.

@@ -673,6 +673,52 @@ local function send_selection(self, mask, text)
 end
 
 
+--- What the program set the attributes of what it writes next to.
+-- This is the pen that draws what is written next, and is not what a cell that is already there is.
+-- @function pen
+-- @treturn table `bold`, `italic`, `blink`, `reverse`, `conceal` and `strike` as booleans, `underline`
+--   as 0 for none, 1 for single, 2 for double and 3 for curly, `font` from 0 to 9, and
+--   `fg` and `bg` as a cell has them
+local function pen(self)
+   return self.handle:pen()
+end
+
+
+--- What a line of the screen is, as a program made it with the sequences for the width of a line.
+-- @function line_info
+-- @int row the line, from 0
+-- @treturn table `doublewidth`, which is true for a line of characters that are twice as wide,
+--   `doubleheight`, which is nil, `'top'` or `'bottom'` for the halves of a line of characters
+--   that are twice as high, and `continuation`, which is true for a line that is the rest of the line
+--   above it, which was too long for the screen
+local function line_info(self, row)
+   check(self, row, 0)
+   return self.handle:line_info(row)
+end
+
+
+--- Whether there is nothing but blanks from a cell to the end of its line.
+-- @function is_eol
+-- @int row the line, from 0
+-- @int col the column, from 0
+-- @treturn bool true if there is not
+local function is_eol(self, row, col)
+   check(self, row, col)
+   return self.handle:is_eol(row, col)
+end
+
+
+--- Whether a line that is too long for the screen is made again when its width changes.
+-- A terminal that does this joins the lines that were made by the width of the screen, and
+-- divides them again for the new one, when it is `resize`d, as many terminals do.
+-- @function set_reflow
+-- @bool on true to make it again
+local function set_reflow(self, on)
+   self.handle:set_reflow(on and true or false)
+   return self
+end
+
+
 --- Take what has changed on the screen since the last call.
 -- A terminal that is made with `changes = true` keeps what a program changes on
 -- its screen, in order, until they are taken, so that a program that draws the
@@ -767,6 +813,10 @@ local Terminal = {
    changes = argscheck('lvterm.terminal.changes (table)', changes),
    selections = argscheck('lvterm.terminal.selections (table)', selections),
    send_selection = argscheck('lvterm.terminal.send_selection (table, string, string)', send_selection),
+   pen = argscheck('lvterm.terminal.pen (table)', pen),
+   line_info = argscheck('lvterm.terminal.line_info (table, int)', line_info),
+   is_eol = argscheck('lvterm.terminal.is_eol (table, int, int)', is_eol),
+   set_reflow = argscheck('lvterm.terminal.set_reflow (table, <?boolean>)', set_reflow),
    palette_color = argscheck('lvterm.terminal.palette_color (table, int)', palette_color),
    set_palette_color = argscheck('lvterm.terminal.set_palette_color (table, int, table)', set_palette_color),
    default_colors = argscheck('lvterm.terminal.default_colors (table)', default_colors),

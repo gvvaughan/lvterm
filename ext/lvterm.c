@@ -1550,6 +1550,109 @@ handle_send_selection(lua_State *L)
 
 
 /***
+What the program set the attributes of what it writes next to.
+@function pen
+@treturn table `bold`, `italic`, `blink`, `reverse`, `conceal` and `strike`, `underline` as a number from 0, `font` from 0, `fg` and `bg`
+*/
+static int
+handle_pen(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+	VTermValue v;
+	static const struct { const char *name; VTermAttr attr; int kind; } pens[] =
+	{
+		{"bold", VTERM_ATTR_BOLD, 0},
+		{"underline", VTERM_ATTR_UNDERLINE, 1},
+		{"italic", VTERM_ATTR_ITALIC, 0},
+		{"blink", VTERM_ATTR_BLINK, 0},
+		{"reverse", VTERM_ATTR_REVERSE, 0},
+		{"conceal", VTERM_ATTR_CONCEAL, 0},
+		{"strike", VTERM_ATTR_STRIKE, 0},
+		{"font", VTERM_ATTR_FONT, 1},
+		{"fg", VTERM_ATTR_FOREGROUND, 2},
+		{"bg", VTERM_ATTR_BACKGROUND, 2}
+	};
+	size_t i;
+
+	lua_createtable(L, 0, 10);
+	for (i = 0; i < sizeof (pens) / sizeof (pens[0]); i++)
+	{
+		memset(&v, 0, sizeof (v));
+		vterm_state_get_penattr(h->state, pens[i].attr, &v);
+		if (pens[i].kind == 0)
+			lua_pushboolean(L, v.boolean != 0);
+		else if (pens[i].kind == 1)
+			lua_pushinteger(L, v.number);
+		else
+			pushcolor(L, &v.color);
+		lua_setfield(L, -2, pens[i].name);
+	}
+	return 1;
+}
+
+
+/***
+What a line of the screen is.
+@function line_info
+@int row the line, from 0
+@treturn table `doublewidth`, `doubleheight` as nil, `'top'` or `'bottom'`, and `continuation`
+*/
+static int
+handle_line_info(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+	const VTermLineInfo *info = vterm_state_get_lineinfo(h->state, (int) luaL_checkinteger(L, 2));
+
+	lua_createtable(L, 0, 3);
+	lua_pushboolean(L, info->doublewidth);
+	lua_setfield(L, -2, "doublewidth");
+	if (info->doubleheight == 1)
+		lua_pushliteral(L, "top");
+	else if (info->doubleheight == 2)
+		lua_pushliteral(L, "bottom");
+	else
+		lua_pushnil(L);
+	lua_setfield(L, -2, "doubleheight");
+	lua_pushboolean(L, info->continuation);
+	lua_setfield(L, -2, "continuation");
+	return 1;
+}
+
+
+/***
+Whether there is nothing but blanks from a cell to the end of its line.
+@function is_eol
+@int row the line, from 0
+@int col the column, from 0
+@treturn bool true if there is not
+*/
+static int
+handle_is_eol(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+	VTermPos pos;
+
+	pos.row = (int) luaL_checkinteger(L, 2);
+	pos.col = (int) luaL_checkinteger(L, 3);
+	lua_pushboolean(L, vterm_screen_is_eol(h->screen, pos));
+	return 1;
+}
+
+
+/***
+Whether a line that is too long for the screen is made again when its width changes.
+@function set_reflow
+@bool on true to make it again
+*/
+static int
+handle_set_reflow(lua_State *L)
+{
+	vterm_screen_enable_reflow(checkhandle(L)->screen, lua_toboolean(L, 2));
+	return 0;
+}
+
+
+/***
 Take how many times the program rang the bell.
 @function bells
 @treturn int the number of bells since the last call, which is forgotten
@@ -1619,6 +1722,10 @@ static const luaL_Reg handle_methods[] =
 	{"title",	handle_title},
 	{"bells",	handle_bells},
 	{"changes",	handle_changes},
+	{"pen",	handle_pen},
+	{"line_info",	handle_line_info},
+	{"is_eol",	handle_is_eol},
+	{"set_reflow",	handle_set_reflow},
 	{"selections",	handle_selections},
 	{"send_selection",	handle_send_selection},
 	{"palette_color",	handle_palette_color},

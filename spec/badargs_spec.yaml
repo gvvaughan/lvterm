@@ -162,3 +162,19 @@ specify lvterm:
 - describe send_selection:
   - context with bad arguments:
       badargs.diagnose('lvterm.terminal.send_selection (table, string, string)', term.send_selection)
+
+- describe pen:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.pen (table)', term.pen)
+
+- describe line_info:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.line_info (table, int)', term.line_info)
+
+- describe is_eol:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.is_eol (table, int, int)', term.is_eol)
+
+- describe set_reflow:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.set_reflow (table, <?boolean>)', term.set_reflow)

@@ -91,6 +91,9 @@ about a position that is not on the screen is an error.
 | `term:runs(row)`             | returns one row as runs of cells that are drawn alike |
 | `term:cursor()`              | returns the row and column of the cursor       |
 | `term:changes()`             | returns what changed on the screen since the last call |
+| `term:pen()`                 | returns the attributes and colors that the program set to write with |
+| `term:line_info(row)`        | returns whether a line is double width or height, or continues the line above |
+| `term:is_eol(row, col)`      | returns whether only blanks follow a cell |
 | `term:selections()`          | returns the sequences for the selection that the program wrote |
 | `term:palette_color(index)`  | returns the `red`, `green` and `blue` of a color of the palette |
 | `term:default_colors()`      | returns the foreground and background that cells have by default |
@@ -194,6 +197,23 @@ At most 64 are kept until they are taken, and the oldest are dropped after
 that. A terminal that is not made with `selections = true` discards the sequence.
 Like the changes of the screen, they need the `core` backend where the `ffi`
 backend cannot take the fragments of text that libvterm passes by value.
+
+
+### The state that libvterm keeps
+
+`term:pen()` is what the program set the attributes of what it writes next to:
+`bold`, `italic`, `blink`, `reverse`, `conceal` and `strike`, `underline` as 0
+to 3, `font` from 0 to 9, and `fg` and `bg` as a cell has them.
+
+`term:line_info(row)` is whether the program made a line of characters that
+are twice as wide (`doublewidth`), or one half of a line of characters that are
+twice as high (`doubleheight` is `'top'` or `'bottom'`, or nil), and whether
+the line is the rest of one above it that was too long for the screen
+(`continuation`), so that text that is copied from the screen can be joined
+again. `term:is_eol(row, col)` is true if only blanks follow a cell.
+
+`term:set_reflow(true)` has a terminal join the lines that its width made, and
+divide them again for the new width, when it is resized, as many terminals do.
 
 
 ## 3. Scrollback and the alternate screen

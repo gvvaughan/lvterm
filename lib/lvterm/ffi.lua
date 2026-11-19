@@ -84,7 +84,13 @@ typedef struct {
    uint32_t    final : 1;
 } VTermStringFragment;
 
-typedef union { int boolean; int number; VTermStringFragment string; char reserved[32]; } VTermValue;
+typedef union { int boolean; int number; VTermStringFragment string; VTermColor color; char reserved[32]; } VTermValue;
+
+typedef struct {
+   unsigned int doublewidth  : 1;
+   unsigned int doubleheight : 2;
+   unsigned int continuation : 1;
+} VTermLineInfo;
 
 typedef struct {
    void *damage;
@@ -124,6 +130,8 @@ void vterm_mouse_button(VTerm *vt, int button, int pressed, int mod);
 VTermState *vterm_obtain_state(VTerm *vt);
 int  vterm_state_set_termprop(VTermState *state, int prop, VTermValue *val);
 void vterm_state_focus_in(VTermState *state);
+int  vterm_state_get_penattr(const VTermState *state, int attr, VTermValue *val);
+const VTermLineInfo *vterm_state_get_lineinfo(const VTermState *state, int row);
 void vterm_state_set_selection_callbacks(VTermState *state, const VTermSelectionCallbacks *callbacks, void *user, char *buffer, size_t buflen);
 void vterm_state_send_selection(VTermState *state, int mask, VTermStringFragment frag);
 void vterm_state_focus_out(VTermState *state);
@@ -137,6 +145,8 @@ VTermScreen *vterm_obtain_screen(VTerm *vt);
 void   vterm_screen_set_callbacks(VTermScreen *screen, const VTermScreenCallbacks *callbacks, void *user);
 void   vterm_screen_enable_altscreen(VTermScreen *screen, int altscreen);
 void   vterm_screen_flush_damage(VTermScreen *screen);
+void   vterm_screen_enable_reflow(VTermScreen *screen, bool reflow);
+int    vterm_screen_is_eol(const VTermScreen *screen, VTermPos pos);
 void   vterm_screen_set_default_colors(VTermScreen *screen, const VTermColor *default_fg, const VTermColor *default_bg);
 void   vterm_screen_set_damage_merge(VTermScreen *screen, int size);
 void   vterm_screen_reset(VTermScreen *screen, int hard);
@@ -1012,6 +1022,62 @@ local function send_selection(self, mask, text)
 end
 
 
+--- What the program set the attributes of what it writes next to.
+-- @function pen
+-- @treturn table `bold`, `italic`, `blink`, `reverse`, `conceal` and `strike`, `underline` as a number from 0, `font` from 0, `fg` and `bg`
+local function pen(self)
+   local v = ffi.new 'VTermValue'
+   local function flag(attr)
+      C.vterm_state_get_penattr(self.state, attr, v)
+      return v.boolean ~= 0
+   end
+   local function number(attr)
+      C.vterm_state_get_penattr(self.state, attr, v)
+      return v.number
+   end
+   local function shade(attr)
+      C.vterm_state_get_penattr(self.state, attr, v)
+      return color(v.color)
+   end
+   return {
+      bold = flag(1), underline = number(2), italic = flag(3), blink = flag(4), reverse = flag(5),
+      conceal = flag(6), strike = flag(7), font = number(8), fg = shade(9), bg = shade(10),
+   }
+end
+
+
+--- What a line of the screen is.
+-- @function line_info
+-- @int row the line, from 0
+-- @treturn table `doublewidth`, `doubleheight` as nil, `'top'` or `'bottom'`, and `continuation`
+local function line_info(self, row)
+   local info = C.vterm_state_get_lineinfo(self.state, row)
+   return {
+      doublewidth = info.doublewidth == 1,
+      doubleheight = info.doubleheight == 1 and 'top' or info.doubleheight == 2 and 'bottom' or nil,
+      continuation = info.continuation == 1,
+   }
+end
+
+
+--- Whether there is nothing but blanks from a cell to the end of its line.
+-- @function is_eol
+-- @int row the line, from 0
+-- @int col the column, from 0
+-- @treturn bool true if there is not
+local function is_eol(self, row, col)
+   return C.vterm_screen_is_eol(self.screen, ffi.new('VTermPos', row, col)) ~= 0
+end
+
+
+--- Whether a line that is too long for the screen is made again when its width changes.
+-- @function set_reflow
+-- @bool on true to make it again
+local function set_reflow(self, on)
+   C.vterm_screen_enable_reflow(self.screen, on and true or false)
+end
+
+
 --- Take how many times the program rang the bell.
 -- @function bells
 -- @treturn int the number of bells since the last call, which is forgotten
@@ -1056,6 +1122,10 @@ Handle = {
    set_bold_highbright = set_bold_highbright,
    selections = selections,
    send_selection = send_selection,
+   pen = pen,
+   line_info = line_info,
+   is_eol = is_eol,
+   set_reflow = set_reflow,
 }
 Handle.__index = Handle
 

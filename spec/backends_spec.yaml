@@ -155,3 +155,20 @@ describe a backend that keeps the selection sequences of a program:
       if not both_backends then pending 'needs both backends' end
       expect(selection_differences('\27]52;c;aGVsbG8=\27\\\27]52;pq;d29ybGQ=\7\27]52;c;?\27\\')).to_equal {}
       expect(selection_differences('\27]52;c;aGVs' .. 'bG8=\27\\' .. string.rep('\27]52;s;eA==\27\\', 70))).to_equal {}
+
+describe a backend that returns the state that libvterm keeps:
+- context when the program sets the pen, and the widths of lines:
+  - it returns the same as the other backend: |
+      if not both_backends then pending 'needs both backends' end
+      expect(state_differences('\27[1;4;38;5;3;48;2;1;2;3mab\27#6wide\r\n\27#3top\r\n\27#4bottom\r\nabcdefghijklmnopqrstuvwxyz')).to_equal {}
+- context when lines are long, with and without reflow, and the screen is resized:
+  - it returns the same as the other backend: |
+      if not both_backends then pending 'needs both backends' end
+      expect(state_differences('abcdefghijklmnopqrstuvwxyz0123456789\r\nnext\r\n', 4, 10, true, {4, 20})).to_equal {}
+      expect(state_differences('abcdefghijklmnopqrstuvwxyz0123456789\r\nnext\r\n', 4, 20, true, {4, 8})).to_equal {}
+      expect(state_differences('abcdefghijklmnopqrstuvwxyz0123456789\r\nnext\r\n', 4, 10, false, {4, 20})).to_equal {}
+- context when the program writes a long stream of everything:
+  - it returns the same as the other backend: |
+      if not both_backends then pending 'needs both backends' end
+      expect(state_differences(noise(3000), 24, 80)).to_equal {}
+      expect(state_differences(noise(3000), 7, 13, true, {9, 21})).to_equal {}

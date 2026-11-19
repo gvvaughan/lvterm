@@ -1,0 +1,91 @@
+before: |
+  lvterm = require 'lvterm'
+
+specify the state that libvterm keeps of a terminal:
+- describe the pen:
+  - it has no attributes and the default colors to start with: |
+      local pen = lvterm.new(3, 10):pen()
+      expect(pen.bold).to_be(false)
+      expect(pen.underline).to_be(0)
+      expect(pen.font).to_be(0)
+      expect(pen.fg).to_be(nil)
+      expect(pen.bg).to_be(nil)
+  - it has the attributes that the program set: |
+      local term = lvterm.new(3, 10)
+      term:write '\27[1;3;4;5;7;8;9m'
+      local pen = term:pen()
+      expect(pen.bold).to_be(true)
+      expect(pen.italic).to_be(true)
+      expect(pen.underline).to_be(1)
+      expect(pen.blink).to_be(true)
+      expect(pen.reverse).to_be(true)
+      expect(pen.conceal).to_be(true)
+      expect(pen.strike).to_be(true)
+  - it has the underline and the font that the program set: |
+      local term = lvterm.new(3, 10)
+      term:write '\27[21;12m'
+      expect(term:pen().underline).to_be(2)
+      expect(term:pen().font).to_be(2)
+  - it has the colors that the program set, as a cell has them: |
+      local term = lvterm.new(3, 10)
+      term:write '\27[38;5;3;48;2;1;2;3m'
+      local pen = term:pen()
+      expect(pen.fg).to_be(3)
+      expect(pen.bg).to_equal {red = 1, green = 2, blue = 3}
+  - it is as it was after the attributes are reset: |
+      local term = lvterm.new(3, 10)
+      term:write '\27[1;31m\27[0m'
+      expect(term:pen().bold).to_be(false)
+      expect(term:pen().fg).to_be(nil)
+- describe a line:
+  - it has none of what makes it different to start with: |
+      local info = lvterm.new(3, 10):line_info(0)
+      expect(info).to_equal {doublewidth = false, continuation = false}
+  - it is of characters that are twice as wide when the line is set to double width: |
+      local term = lvterm.new(4, 10)
+      term:write '\27#6wide'
+      expect(term:line_info(0)).to_equal {doublewidth = true, continuation = false}
+  - it is a half of a line of characters that are twice as high: |
+      local term = lvterm.new(4, 10)
+      term:write '\27#3top\r\n\27#4bottom'
+      expect(term:line_info(0).doubleheight).to_be 'top'
+      expect(term:line_info(1).doubleheight).to_be 'bottom'
+      expect(term:line_info(0).doublewidth).to_be(true)
+  - it is the continuation of the line above when that was too long: |
+      local term = lvterm.new(4, 10)
+      term:write 'abcdefghijklmno\r\nnext'
+      expect(term:line_info(0).continuation).to_be(false)
+      expect(term:line_info(1).continuation).to_be(true)
+      expect(term:line_info(2).continuation).to_be(false)
+  - it is an error off the screen: |
+      expect(lvterm.new(4, 10):line_info(4)).to_raise 'outside a screen'
+- describe the end of a line:
+  - it is where nothing but blanks follows: |
+      local term = lvterm.new(3, 10)
+      term:write 'abc'
+      expect(term:is_eol(0, 0)).to_be(false)
+      expect(term:is_eol(0, 2)).to_be(false)
+      expect(term:is_eol(0, 3)).to_be(true)
+      expect(term:is_eol(1, 0)).to_be(true)
+  - it is an error off the screen: |
+      expect(lvterm.new(3, 10):is_eol(0, 10)).to_raise 'outside a screen'
+- describe reflow:
+  - it keeps a line as it was when the screen is made wider, by default: |
+      local term = lvterm.new(3, 10)
+      term:write 'abcdefghijklmno'
+      term:resize(3, 20)
+      expect(term:text(0, 0, 10)).to_be 'abcdefghij'
+      expect(term:text(1, 0, 5)).to_be 'klmno'
+  - it joins the lines that were made by the width when reflow is set: |
+      local term = lvterm.new(3, 10)
+      expect(term:set_reflow(true)).to_be(term)
+      term:write 'abcdefghijklmno'
+      term:resize(3, 20)
+      expect(term:text(0, 0, 15)).to_be 'abcdefghijklmno'
+  - it divides the line again when the screen is made narrower: |
+      local term = lvterm.new(3, 20)
+      term:set_reflow(true)
+      term:write 'abcdefghijklmno'
+      term:resize(3, 10)
+      expect(term:text(0, 0, 10)).to_be 'abcdefghij'
+      expect(term:text(1, 0, 5)).to_be 'klmno'

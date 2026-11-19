@@ -38,6 +38,15 @@
     selections, and the `ffi` backend, like for `changes`, needs the
     platforms that pass a small structure in registers.
 
+  - `pen()` returns the attributes and colors that the program set to
+    write with, `line_info(row)` whether a line is of characters that are
+    twice as wide, or half of a line of characters that are twice as
+    high, or the continuation of the line above that was too long for the
+    screen, and `is_eol(row, col)` whether only blanks follow a cell.
+    `set_reflow(true)` has the lines that the width of the screen made
+    joined, and divided again for the width that it is resized to.  Both
+    backends return the same.
+
 ### Bug fixes
 
   - `write` holds back the first bytes of a character of UTF-8 whose other
