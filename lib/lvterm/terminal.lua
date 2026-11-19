@@ -673,6 +673,32 @@ local function send_selection(self, mask, text)
 end
 
 
+--- Take the sequences that the program wrote that libvterm does not recognise.
+-- A terminal that is made with `unrecognised = true` keeps the control characters, escape sequences
+-- and strings that libvterm does not handle, so that a caller can act on those that it handles, such
+-- as the one that reports the directory of a shell (OSC 7).  Each is a table with a `kind`:
+--
+--  * `'control'`: a control character, as `byte`.
+--  * `'csi'`: a control sequence, with its `leader`, which is `''` or a character such as `'?'`,
+--    its numbers in `args`, which are `false` for one that is left out, a list of booleans in `more`
+--    that are true for each that is followed by one that is a part of it, after a colon, its
+--    `intermediate` characters and its `command` letter.
+--  * `'osc'`: an operating system command, with its `command` number and its `text`.
+--  * `'dcs'`: a device control string, with its `command` and its `text`.
+--  * `'apc'`, `'pm'` and `'sos'`: those strings, with their `text`.
+--
+-- At most 256 are kept until they are taken, and the oldest are dropped after that.
+-- @function unrecognised
+-- @treturn table the sequences, oldest first, which are removed from the terminal
+-- @usage
+--    local term = lvterm.new(24, 80, {unrecognised = true})
+--    term:write '\27]7;file:///tmp\7'
+--    term:unrecognised() --> {{kind = 'osc', command = 7, text = 'file:///tmp'}}
+local function unrecognised(self)
+   return self.handle:unrecognised()
+end
+
+
 --- What the program set the attributes of what it writes next to.
 -- This is the pen that draws what is written next, and is not what a cell that is already there is.
 -- @function pen
@@ -813,6 +839,7 @@ local Terminal = {
    changes = argscheck('lvterm.terminal.changes (table)', changes),
    selections = argscheck('lvterm.terminal.selections (table)', selections),
    send_selection = argscheck('lvterm.terminal.send_selection (table, string, string)', send_selection),
+   unrecognised = argscheck('lvterm.terminal.unrecognised (table)', unrecognised),
    pen = argscheck('lvterm.terminal.pen (table)', pen),
    line_info = argscheck('lvterm.terminal.line_info (table, int)', line_info),
    is_eol = argscheck('lvterm.terminal.is_eol (table, int, int)', is_eol),

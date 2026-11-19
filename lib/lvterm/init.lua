@@ -118,7 +118,9 @@ end
 --   is not given, and none if it is 0, and `changes`, which is true to keep
 --   what changes on the screen, for `lvterm.terminal.Terminal:changes`, and
 --   `selections`, which is true to keep the sequences for the selection that a
---   program writes, for `lvterm.terminal.Terminal:selections`
+--   program writes, for `lvterm.terminal.Terminal:selections`,
+--   and `unrecognised`, which is true to keep the sequences that libvterm
+--   does not recognise, for `lvterm.terminal.Terminal:unrecognised`
 -- @treturn lvterm.terminal.Terminal
 local function new(rows, cols, options)
    rows, cols = rows or 24, cols or 80
@@ -136,6 +138,10 @@ local function new(rows, cols, options)
    local selections = options and options.selections
    if selections ~= nil and type(selections) ~= 'boolean' then
       error(format('the `selections` of a terminal must be a boolean, not %s', tostring(selections)), 2)
+   end
+   local unrecognised = options and options.unrecognised
+   if unrecognised ~= nil and type(unrecognised) ~= 'boolean' then
+      error(format('the `unrecognised` of a terminal must be a boolean, not %s', tostring(unrecognised)), 2)
    end
    return terminal.new(backend.new(rows, cols, options), rows, cols)
 end

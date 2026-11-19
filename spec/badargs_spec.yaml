@@ -178,3 +178,7 @@ specify lvterm:
 - describe set_reflow:
   - context with bad arguments:
       badargs.diagnose('lvterm.terminal.set_reflow (table, <?boolean>)', term.set_reflow)
+
+- describe unrecognised:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.unrecognised (table)', term.unrecognised)

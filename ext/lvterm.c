@@ -77,6 +77,30 @@ typedef struct
 #define MOST_SELECTIONS 64
 #define SELECTION_BUFFER 4096
 
+/* A sequence that libvterm does not recognise, which is kept until it is taken: the
+   kind of it, the byte of a control or the number of an OSC in NUM, the leader
+   and the intermediate bytes and the command of a CSI, or the command of a DCS,
+   in STR, and the arguments of a CSI, or the text of the others, in TEXT. */
+enum { UNKNOWN_CONTROL = 1, UNKNOWN_CSI, UNKNOWN_OSC, UNKNOWN_DCS, UNKNOWN_APC,
+       UNKNOWN_PM, UNKNOWN_SOS };
+
+typedef struct
+{
+	int		kind;
+	int		num;
+	char		leader[8];
+	char		intermed[8];
+	char		command[64];
+	int		nargs;
+	long		*args;
+	char		*text;
+	size_t		len;
+} Unknown;
+
+/* The most that are kept until they are taken, after which the oldest are
+   dropped. */
+#define MOST_UNKNOWN 256
+
 /* A change of the screen, that is kept until `changes` takes it: a damage has
    the rectangle in V, a move has the rectangle that it moved to and then the
    row and column that it moved from. */
@@ -138,6 +162,13 @@ typedef struct
 	char		*selpart;	/* the text that is still coming */
 	size_t		selpartlen;
 	size_t		selpartcap;
+
+	int		unrecognising;	/* the sequences that are not known are kept */
+	Unknown		*unknown;
+	size_t		nunknown;
+	char		*unkpart;	/* the text that is still coming */
+	size_t		unkpartlen;
+	size_t		unkpartcap;
 } Handle;
 
 
@@ -446,6 +477,206 @@ sent(const char *bytes, size_t len, void *user)
 
 
 static void
+dropunknown(Unknown *u)
+{
+	free(u->args);
+	free(u->text);
+	u->args = NULL;
+	u->text = NULL;
+}
+
+
+/* Keep a sequence that is not known, and drop the oldest if there are too
+   many.  It is as it is made, which U takes the pointers of. */
+static void
+keepunknown(Handle *h, Unknown *u)
+{
+	Unknown *p;
+
+	if (h->nunknown == MOST_UNKNOWN)
+	{
+		dropunknown(&h->unknown[0]);
+		memmove(h->unknown, h->unknown + 1, (MOST_UNKNOWN - 1) * sizeof (Unknown));
+		h->nunknown--;
+	}
+	p = (Unknown *) realloc(h->unknown, (h->nunknown + 1) * sizeof (Unknown));
+	if (p == NULL)
+	{
+		dropunknown(u);
+		return;
+	}
+	h->unknown = p;
+	h->unknown[h->nunknown++] = *u;
+}
+
+
+/* Add a fragment of text to what is coming, and return what there is, which
+   the caller owns, when it is the last: NULL until then, and NULL if the length
+   is 0 and there is nothing, in which case LEN is 0 too. */
+static char *
+wholetext(Handle *h, VTermStringFragment frag, size_t *len)
+{
+	char *out;
+
+	if (frag.initial)
+	{
+		free(h->unkpart);
+		h->unkpart = NULL;
+		h->unkpartlen = h->unkpartcap = 0;
+	}
+	if (h->unkpartlen + frag.len + 1 > h->unkpartcap)
+	{
+		size_t cap = h->unkpartcap ? h->unkpartcap : 64;
+		char *p;
+
+		while (cap < h->unkpartlen + frag.len + 1)
+			cap *= 2;
+		p = (char *) realloc(h->unkpart, cap);
+		if (p == NULL)
+			return NULL;
+		h->unkpart = p;
+		h->unkpartcap = cap;
+	}
+	if (frag.len > 0)
+		memcpy(h->unkpart + h->unkpartlen, frag.str, frag.len);
+	h->unkpartlen += frag.len;
+	h->unkpart[h->unkpartlen] = '\0';
+
+	if (!frag.final)
+		return NULL;
+	out = h->unkpart;
+	*len = h->unkpartlen;
+	h->unkpart = NULL;
+	h->unkpartlen = h->unkpartcap = 0;
+	return out;
+}
+
+
+static int
+unknowncontrol(unsigned char control, void *user)
+{
+	Unknown u;
+
+	memset(&u, 0, sizeof (u));
+	u.kind = UNKNOWN_CONTROL;
+	u.num = control;
+	keepunknown((Handle *) user, &u);
+	return 1;
+}
+
+
+static int
+unknowncsi(const char *leader, const long args[], int argcount,
+	   const char *intermed, char command, void *user)
+{
+	Unknown u;
+
+	memset(&u, 0, sizeof (u));
+	u.kind = UNKNOWN_CSI;
+	if (leader != NULL)
+		strncpy(u.leader, leader, sizeof (u.leader) - 1);
+	if (intermed != NULL)
+		strncpy(u.intermed, intermed, sizeof (u.intermed) - 1);
+	u.command[0] = command;
+	if (argcount > 0)
+	{
+		u.args = (long *) malloc(argcount * sizeof (long));
+		if (u.args != NULL)
+		{
+			memcpy(u.args, args, argcount * sizeof (long));
+			u.nargs = argcount;
+		}
+	}
+	keepunknown((Handle *) user, &u);
+	return 1;
+}
+
+
+static int
+unknownosc(int command, VTermStringFragment frag, void *user)
+{
+	Handle *h = (Handle *) user;
+	Unknown u;
+
+	memset(&u, 0, sizeof (u));
+	u.kind = UNKNOWN_OSC;
+	u.num = command;
+	u.text = wholetext(h, frag, &u.len);
+	if (u.text != NULL)
+		keepunknown(h, &u);
+	return 1;
+}
+
+
+static int
+unknowndcs(const char *command, size_t commandlen, VTermStringFragment frag,
+	   void *user)
+{
+	Handle *h = (Handle *) user;
+	Unknown u;
+
+	memset(&u, 0, sizeof (u));
+	u.kind = UNKNOWN_DCS;
+	if (commandlen >= sizeof (u.command))
+		commandlen = sizeof (u.command) - 1;
+	memcpy(u.command, command, commandlen);
+	u.text = wholetext(h, frag, &u.len);
+	if (u.text != NULL)
+		keepunknown(h, &u);
+	return 1;
+}
+
+
+static int
+unknownstring(int kind, VTermStringFragment frag, void *user)
+{
+	Handle *h = (Handle *) user;
+	Unknown u;
+
+	memset(&u, 0, sizeof (u));
+	u.kind = kind;
+	u.text = wholetext(h, frag, &u.len);
+	if (u.text != NULL)
+		keepunknown(h, &u);
+	return 1;
+}
+
+
+static int
+unknownapc(VTermStringFragment frag, void *user)
+{
+	return unknownstring(UNKNOWN_APC, frag, user);
+}
+
+
+static int
+unknownpm(VTermStringFragment frag, void *user)
+{
+	return unknownstring(UNKNOWN_PM, frag, user);
+}
+
+
+static int
+unknownsos(VTermStringFragment frag, void *user)
+{
+	return unknownstring(UNKNOWN_SOS, frag, user);
+}
+
+
+/* Must stay for as long as a terminal does, as libvterm keeps the pointer. */
+static const VTermStateFallbacks fallbacks =
+{
+	unknowncontrol,
+	unknowncsi,
+	unknownosc,
+	unknowndcs,
+	unknownapc,
+	unknownpm,
+	unknownsos
+};
+
+
+static void
 dropselection(Selection *s)
 {
 	free(s->text);
@@ -681,6 +912,10 @@ core_new(lua_State *L)
 		lua_getfield(L, 3, "selections");
 		h->selecting = lua_toboolean(L, -1);
 		lua_pop(L, 1);
+
+		lua_getfield(L, 3, "unrecognised");
+		h->unrecognising = lua_toboolean(L, -1);
+		lua_pop(L, 1);
 	}
 
 	vterm_output_set_callback(h->vt, sent, h);
@@ -694,6 +929,8 @@ core_new(lua_State *L)
 		vterm_state_set_selection_callbacks(h->state, &selection_callbacks, h,
 						    h->selbuf, SELECTION_BUFFER);
 	}
+	if (h->unrecognising)
+		vterm_state_set_unrecognised_fallbacks(h->state, &fallbacks, h);
 	/* Damage is merged by row, and each scroll is reported as it is made, as a
 	   move and the damage of the lines that it makes.  The mode that merges
 	   scrolls adds those that are made before the changes are taken, whichever
@@ -733,6 +970,12 @@ handle_gc(lua_State *L)
 		h->selpart = NULL;
 		free(h->selbuf);
 		h->selbuf = NULL;
+		while (h->nunknown > 0)
+			dropunknown(&h->unknown[--h->nunknown]);
+		free(h->unknown);
+		h->unknown = NULL;
+		free(h->unkpart);
+		h->unkpart = NULL;
 		free(h->title);
 		h->title = NULL;
 		free(h->partial);
@@ -1488,6 +1731,79 @@ handle_changes(lua_State *L)
 
 
 /***
+Take the sequences that the program wrote that libvterm does not recognise.
+@function unrecognised
+@treturn table the sequences, oldest first, as `lvterm.terminal.Terminal:unrecognised` documents
+*/
+static int
+handle_unrecognised(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+	static const char *kinds[] = {NULL, "control", "csi", "osc", "dcs", "apc", "pm", "sos"};
+	size_t i;
+
+	if (!h->unrecognising)
+		return luaL_error(L, "the unrecognised sequences are kept only by a terminal that is made with `unrecognised = true`");
+
+	lua_createtable(L, (int) h->nunknown, 0);
+	for (i = 0; i < h->nunknown; i++)
+	{
+		const Unknown *u = &h->unknown[i];
+
+		lua_newtable(L);
+		lua_pushstring(L, kinds[u->kind]);
+		lua_setfield(L, -2, "kind");
+		if (u->kind == UNKNOWN_CONTROL)
+			setint(L, "byte", u->num);
+		else if (u->kind == UNKNOWN_OSC)
+			setint(L, "command", u->num);
+		else if (u->kind == UNKNOWN_CSI)
+		{
+			int j;
+
+			lua_pushstring(L, u->leader);
+			lua_setfield(L, -2, "leader");
+			lua_pushstring(L, u->intermed);
+			lua_setfield(L, -2, "intermediate");
+			lua_pushlstring(L, u->command, 1);
+			lua_setfield(L, -2, "command");
+			lua_createtable(L, u->nargs, 0);
+			lua_createtable(L, u->nargs, 0);
+			for (j = 0; j < u->nargs; j++)
+			{
+				unsigned long a = (unsigned long) u->args[j];
+				unsigned long n = a & 0x7fffffffUL;
+
+				if (n == 0x7fffffffUL)
+					lua_pushboolean(L, 0);
+				else
+					lua_pushinteger(L, (lua_Integer) n);
+				lua_rawseti(L, -3, j + 1);
+				lua_pushboolean(L, (a & 0x80000000UL) != 0);
+				lua_rawseti(L, -2, j + 1);
+			}
+			lua_setfield(L, -3, "more");
+			lua_setfield(L, -2, "args");
+		}
+		else if (u->kind == UNKNOWN_DCS)
+		{
+			lua_pushstring(L, u->command);
+			lua_setfield(L, -2, "command");
+		}
+		if (u->kind != UNKNOWN_CONTROL && u->kind != UNKNOWN_CSI)
+		{
+			lua_pushlstring(L, u->text, u->len);
+			lua_setfield(L, -2, "text");
+		}
+		lua_rawseti(L, -2, (int) i + 1);
+	}
+	while (h->nunknown > 0)
+		dropunknown(&h->unknown[--h->nunknown]);
+	return 1;
+}
+
+
+/***
 Take the sequences for the selection that the program wrote.
 @function selections
 @treturn table the selections, oldest first: `set` with the `mask` and the `text`, or `query` with the `mask`
@@ -1722,6 +2038,7 @@ static const luaL_Reg handle_methods[] =
 	{"title",	handle_title},
 	{"bells",	handle_bells},
 	{"changes",	handle_changes},
+	{"unrecognised",	handle_unrecognised},
 	{"pen",	handle_pen},
 	{"line_info",	handle_line_info},
 	{"is_eol",	handle_is_eol},

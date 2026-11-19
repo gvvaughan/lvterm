@@ -47,6 +47,16 @@
     joined, and divided again for the width that it is resized to.  Both
     backends return the same.
 
+  - `lvterm.new(rows, cols, {unrecognised = true})` makes a terminal that
+    keeps the control characters, control sequences (CSI) and strings
+    (OSC, DCS, APC, PM and SOS) that libvterm does not recognise, and
+    `unrecognised()` returns them, oldest first, with the numbers of a CSI
+    and the whole text of the strings, though they were written in parts,
+    so that a caller can act on those that it handles, such as the
+    directory of a shell (OSC 7).  At most 256 are kept.  Both backends
+    return the same, and the `ffi` backend, like for `changes`, needs the
+    platforms that pass a small structure in registers.
+
 ### Bug fixes
 
   - `write` holds back the first bytes of a character of UTF-8 whose other

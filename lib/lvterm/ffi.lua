@@ -109,6 +109,16 @@ typedef struct {
    void *query;
 } VTermSelectionCallbacks;
 
+typedef struct {
+   void *control;
+   void *csi;
+   void *osc;
+   void *dcs;
+   void *apc;
+   void *pm;
+   void *sos;
+} VTermStateFallbacks;
+
 typedef void VTermOutputCallback(const char *s, size_t len, void *user);
 
 VTerm *vterm_new(int rows, int cols);
@@ -130,6 +140,7 @@ void vterm_mouse_button(VTerm *vt, int button, int pressed, int mod);
 VTermState *vterm_obtain_state(VTerm *vt);
 int  vterm_state_set_termprop(VTermState *state, int prop, VTermValue *val);
 void vterm_state_focus_in(VTermState *state);
+void vterm_state_set_unrecognised_fallbacks(VTermState *state, const VTermStateFallbacks *fallbacks, void *user);
 int  vterm_state_get_penattr(const VTermState *state, int attr, VTermValue *val);
 const VTermLineInfo *vterm_state_get_lineinfo(const VTermState *state, int row);
 void vterm_state_set_selection_callbacks(VTermState *state, const VTermSelectionCallbacks *callbacks, void *user, char *buffer, size_t buflen);
@@ -447,6 +458,90 @@ local function queried(mask, user)
 end
 
 
+-- The sequences that libvterm does not recognise, which a handle keeps until they are taken.  The fragments of text
+-- that some of them have are passed by value, in the registers that they are in, as above.
+local MOST_UNRECOGNISED = 256
+
+local function unrecognised_kept(h, event)
+   h.unknown[#h.unknown + 1] = event
+   if #h.unknown > MOST_UNRECOGNISED then
+      remove(h.unknown, 1)
+   end
+end
+
+-- The text of a fragment that is passed as the two registers of its pointer, and its length and flags, whole
+-- when its last fragment has arrived: nil until then.
+local function whole(h, lo, hi)
+   box[0], box[1] = lo, hi
+   local bits = uints[2]
+   local text = ffi.string(ffi.cast('const char *', lo), band(bits, 0x3fffffff))
+   if band(rshift(bits, 30), 1) == 1 then
+      h.unknown_part = {}
+   end
+   if h.unknown_part then
+      h.unknown_part[#h.unknown_part + 1] = text
+      if band(rshift(bits, 31), 1) == 1 then
+         local all = concat(h.unknown_part)
+         h.unknown_part = nil
+         return all
+      end
+   end
+end
+
+local function unknown_control(byte, user)
+   unrecognised_kept(handle_of(user), {kind = 'control', byte = byte})
+   return 1
+end
+
+-- A string of C, which is empty if the pointer is NULL.
+local function cstring(p)
+   return p ~= nil and ffi.string(p) or ''
+end
+
+local function unknown_csi(leader, args, argc, intermed, command, user)
+   local list, more = {}, {}
+   for i = 0, argc - 1 do
+      local a = tonumber(args[i])
+      local flag = floor(a / 2147483648) % 2 == 1
+      local n = a % 2147483648
+      list[i + 1] = n ~= 2147483647 and n or false
+      more[i + 1] = flag
+   end
+   unrecognised_kept(handle_of(user), {kind = 'csi', leader = cstring(leader), args = list, more = more,
+                                       intermediate = cstring(intermed), command = schar(command)})
+   return 1
+end
+
+local function unknown_osc(command, lo, hi, user)
+   local h = handle_of(user)
+   local text = whole(h, lo, hi)
+   if text then
+      unrecognised_kept(h, {kind = 'osc', command = command, text = text})
+   end
+   return 1
+end
+
+local function unknown_dcs(command, len, lo, hi, user)
+   local h = handle_of(user)
+   local text = whole(h, lo, hi)
+   if text then
+      unrecognised_kept(h, {kind = 'dcs', command = ffi.string(command, tonumber(len)), text = text})
+   end
+   return 1
+end
+
+local function unknown_string(kind)
+   return function(lo, hi, user)
+      local h = handle_of(user)
+      local text = whole(h, lo, hi)
+      if text then
+         unrecognised_kept(h, {kind = kind, text = text})
+      end
+      return 1
+   end
+end
+
+
 local function sent(bytes, len, user)
    local h = handle_of(user)
    h.out[#h.out + 1] = ffi.string(bytes, len)
@@ -463,6 +558,7 @@ local property_cb = ffi.cast('int (*)(int, VTermValue *, void *)', property)
 local bell_cb = ffi.cast('int (*)(void *)', rang)
 local sent_cb = ffi.cast('VTermOutputCallback *', sent)
 local damaged_cb, moved_cb, cursor_moved_cb, selected_cb, queried_cb
+local fallbacks, fallback_cbs = ffi.new 'VTermStateFallbacks', {}
 local selection_callbacks = ffi.new 'VTermSelectionCallbacks'
 if BYVALUE then
    -- Kept as long as the process lives, like the others.
@@ -476,6 +572,19 @@ if BYVALUE then
    queried_cb = ffi.cast('int (*)(int, void *)', queried)
    selection_callbacks.set = ffi.cast('void *', selected_cb)
    selection_callbacks.query = ffi.cast('void *', queried_cb)
+   for _, def in ipairs {
+      {'control', 'int (*)(unsigned char, void *)', unknown_control},
+      {'csi', 'int (*)(const char *, const long *, int, const char *, char, void *)', unknown_csi},
+      {'osc', 'int (*)(int, int64_t, int64_t, void *)', unknown_osc},
+      {'dcs', 'int (*)(const char *, size_t, int64_t, int64_t, void *)', unknown_dcs},
+      {'apc', 'int (*)(int64_t, int64_t, void *)', unknown_string 'apc'},
+      {'pm', 'int (*)(int64_t, int64_t, void *)', unknown_string 'pm'},
+      {'sos', 'int (*)(int64_t, int64_t, void *)', unknown_string 'sos'},
+   } do
+      local name = def[1]
+      fallback_cbs[name] = ffi.cast(def[2], def[3])
+      fallbacks[name] = ffi.cast('void *', fallback_cbs[name])
+   end
 end
 callbacks.sb_pushline = pushed_cb
 callbacks.sb_popline = popped_cb
@@ -496,9 +605,9 @@ local Handle
 --   changes on the screen for `changes`
 -- @treturn Handle
 local function new(rows, cols, options)
-   if options and (options.changes or options.selections) and not BYVALUE then
-      error('the ffi backend cannot provide the changes of the screen, or the selection, on this platform: ' ..
-            'use the core backend', 3)
+   if options and (options.changes or options.selections or options.unrecognised) and not BYVALUE then
+      error('the ffi backend cannot provide the changes of the screen, the selection, or the sequences that ' ..
+            'libvterm does not recognise, on this platform: use the core backend', 3)
    end
    local vt = ffi.gc(C.vterm_new(rows, cols), C.vterm_free)
    C.vterm_set_utf8(vt, 1)
@@ -529,6 +638,10 @@ local function new(rows, cols, options)
       -- Kept for as long as the terminal is, as libvterm decodes and encodes in it.
       self.selbuf, self.sels = ffi.new('char[4096]'), {}
       C.vterm_state_set_selection_callbacks(self.state, selection_callbacks, user, self.selbuf, 4096)
+   end
+   if options and options.unrecognised then
+      self.unknown = {}
+      C.vterm_state_set_unrecognised_fallbacks(self.state, fallbacks, user)
    end
    if self.recording then
       -- Damage is merged by row, and each scroll is reported as it is made, as a move and the damage of the lines that it
@@ -1078,6 +1191,19 @@ local function set_reflow(self, on)
 end
 
 
+--- Take the sequences that the program wrote that libvterm does not recognise.
+-- @function unrecognised
+-- @treturn table the sequences, oldest first, as `lvterm.terminal.Terminal:unrecognised` documents
+local function unrecognised(self)
+   if not self.unknown then
+      error('the unrecognised sequences are kept only by a terminal that is made with `unrecognised = true`', 3)
+   end
+   local out = self.unknown
+   self.unknown = {}
+   return out
+end
+
+
 --- Take how many times the program rang the bell.
 -- @function bells
 -- @treturn int the number of bells since the last call, which is forgotten
@@ -1122,6 +1248,7 @@ Handle = {
    set_bold_highbright = set_bold_highbright,
    selections = selections,
    send_selection = send_selection,
+   unrecognised = unrecognised,
    pen = pen,
    line_info = line_info,
    is_eol = is_eol,

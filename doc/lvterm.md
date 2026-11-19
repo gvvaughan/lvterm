@@ -91,6 +91,7 @@ about a position that is not on the screen is an error.
 | `term:runs(row)`             | returns one row as runs of cells that are drawn alike |
 | `term:cursor()`              | returns the row and column of the cursor       |
 | `term:changes()`             | returns what changed on the screen since the last call |
+| `term:unrecognised()`        | returns the sequences that libvterm does not recognise |
 | `term:pen()`                 | returns the attributes and colors that the program set to write with |
 | `term:line_info(row)`        | returns whether a line is double width or height, or continues the line above |
 | `term:is_eol(row, col)`      | returns whether only blanks follow a cell |
@@ -214,6 +215,31 @@ again. `term:is_eol(row, col)` is true if only blanks follow a cell.
 
 `term:set_reflow(true)` has a terminal join the lines that its width made, and
 divide them again for the new width, when it is resized, as many terminals do.
+
+
+### Sequences that libvterm does not recognise
+
+A terminal that is made with `lvterm.new(rows, cols, {unrecognised = true})` keeps
+the control characters, control sequences and strings that libvterm has no use
+for, so a caller can act on those that it handles, such as the one that
+returns the directory that a shell is in (OSC 7), or marks a prompt
+(OSC 133). `term:unrecognised()` returns them oldest first, and removes them. Each
+is a table with a `kind`:
+
+ * `'control'` has the `byte`.
+ * `'csi'` has the `leader`, which is `''` or a character such as `'?'`, the
+   numbers in `args`, which are `false` for one that was left out, `more`, which
+   is true for each that is followed by a part of it after a colon, the
+   `intermediate` characters, and the `command` letter.
+ * `'osc'` has the `command` number and the `text`.
+ * `'dcs'` has the `command` and the `text`.
+ * `'apc'`, `'pm'` and `'sos'` have the `text`.
+
+Text that was written in parts is whole. At most 256 are kept until they are
+taken, and the oldest are dropped after that. libvterm keeps for itself what
+it recognises, including modes that it discards, so those are not returned. This needs
+the `core` backend where the `ffi` backend cannot take the fragments of text
+that libvterm passes by value.
 
 
 ## 3. Scrollback and the alternate screen

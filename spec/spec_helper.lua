@@ -87,6 +87,45 @@ local function described(term)
 end
 
 
+--- What the `ffi` and `core` backends disagree about the sequences that libvterm does not recognise.
+-- Each is made a terminal that keeps them, fed the same bytes, and what each has is compared.
+-- @string stream what to write to both
+-- @treturn {string,...} descriptions of the differences, none if the same
+function unrecognised_differences(stream)
+   local a = terminal.new(ffi_backend.new(3, 20, {unrecognised = true}), 3, 20)
+   local b = terminal.new(core_backend.new(3, 20, {unrecognised = true}), 3, 20)
+   a:write(stream)
+   b:write(stream)
+   local function flat(v)
+      if type(v) ~= 'table' then
+         return tostring(v)
+      end
+      local keys = {}
+      for k in pairs(v) do
+         keys[#keys + 1] = tostring(k)
+      end
+      table.sort(keys)
+      local out = {}
+      for _, k in ipairs(keys) do
+         local value = v[k] ~= nil and v[k] or v[tonumber(k)]
+         out[#out + 1] = k .. '=' .. flat(value)
+      end
+      return '{' .. table.concat(out, ',') .. '}'
+   end
+   local diffs = {}
+   local x, y = a:unrecognised(), b:unrecognised()
+   if #x ~= #y then
+      diffs[#diffs + 1] = string.format('%d sequences against %d', #x, #y)
+   end
+   for i = 1, math.min(#x, #y) do
+      if flat(x[i]) ~= flat(y[i]) then
+         diffs[#diffs + 1] = 'sequence ' .. i
+      end
+   end
+   return diffs
+end
+
+
 --- What the `ffi` and `core` backends disagree about the state of a terminal.
 -- Each is made a terminal, fed the same bytes, with reflow on or off, and then resized,
 -- and the pen, the information of each line and where each line ends compared.

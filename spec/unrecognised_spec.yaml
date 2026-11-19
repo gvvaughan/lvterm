@@ -1,0 +1,101 @@
+before: |
+  lvterm = require 'lvterm'
+
+  -- Whether the backend can keep them, which the ffi backend cannot where it cannot take a structure in a
+  -- register.
+  function cannot()
+     return not pcall(lvterm.new, 2, 2, {unrecognised = true})
+  end
+
+  function kept()
+     if cannot() then pending 'the backend cannot keep unrecognised sequences here' end
+     return lvterm.new(5, 40, {unrecognised = true})
+  end
+
+specify the sequences that libvterm does not recognise:
+- describe a terminal that is not made to keep them:
+  - it raises an error unless the terminal is made to record them: |
+      expect(lvterm.new(5, 40):unrecognised()).to_raise 'made with `unrecognised = true`'
+  - it discards them: |
+      local term = lvterm.new(5, 40)
+      term:write 'ab\27]7;file:///tmp\7\27[99zcd'
+      expect(term:row(0)).to_match '^abcd'
+  - it is not made with an unrecognised that is not a boolean: |
+      expect(lvterm.new(5, 40, {unrecognised = 'yes'})).to_raise 'must be a boolean'
+- describe an operating system command:
+  - it has with its number and its text: |
+      local term = kept()
+      term:write '\27]7;file:///tmp/dir\7'
+      expect(term:unrecognised()).to_equal {{kind = 'osc', command = 7, text = 'file:///tmp/dir'}}
+  - it has when it ends with the string terminator: |
+      local term = kept()
+      term:write '\27]133;A\27\\'
+      expect(term:unrecognised()).to_equal {{kind = 'osc', command = 133, text = 'A'}}
+  - it has whole when it was written in parts: |
+      local term = kept()
+      term:write '\27]7;file:'
+      term:write '///tmp/'
+      term:write 'dir\7'
+      expect(term:unrecognised()[1].text).to_be 'file:///tmp/dir'
+  - it is not recorded if libvterm recognises it, as it does the title: |
+      local term = kept()
+      term:write '\27]2;a title\7'
+      expect(term:unrecognised()).to_equal {}
+- describe a control sequence:
+  - it has with its numbers, command and leader: |
+      local term = kept()
+      term:write '\27[?99;7z'
+      expect(term:unrecognised()).to_equal {{kind = 'csi', leader = '?', args = {99, 7}, more = {false, false},
+                                              intermediate = '', command = 'z'}}
+  - it has a number that is left out as false: |
+      local term = kept()
+      term:write '\27[99;;7z'
+      expect(term:unrecognised()[1].args).to_equal {99, false, 7}
+  - it records which numbers have a part after a colon: |
+      local term = kept()
+      term:write '\27[1:2;3z'
+      local csi = term:unrecognised()[1]
+      expect(csi.args).to_equal {1, 2, 3}
+      expect(csi.more).to_equal {true, false, false}
+  - it is not recorded if libvterm recognises it: |
+      local term = kept()
+      term:write '\27[2;3H\27[1;31m'
+      expect(term:unrecognised()).to_equal {}
+- describe a control character:
+  - it has as its byte: |
+      local term = kept()
+      term:write '\1'
+      expect(term:unrecognised()).to_equal {{kind = 'control', byte = 1}}
+- describe the strings of a device control, an application program, a privacy message and the start of a string:
+  - it has a device control string with its command and text: |
+      local term = kept()
+      term:write '\27P1$rtext\27\\'
+      expect(term:unrecognised()).to_equal {{kind = 'dcs', command = '1$r', text = 'text'}}
+  - it has the others with their text: |
+      local term = kept()
+      term:write '\27_apc text\27\\\27^pm text\27\\\27Xsos text\27\\'
+      expect(term:unrecognised()).to_equal {{kind = 'apc', text = 'apc text'}, {kind = 'pm', text = 'pm text'},
+                                            {kind = 'sos', text = 'sos text'}}
+- describe what is kept:
+  - it is in the order that it was written, and is not returned again: |
+      local term = kept()
+      term:write '\27]7;a\7\27[99z\27]7;b\7'
+      local got = term:unrecognised()
+      expect(#got).to_be(3)
+      expect(got[1].text).to_be 'a'
+      expect(got[2].kind).to_be 'csi'
+      expect(got[3].text).to_be 'b'
+      expect(term:unrecognised()).to_equal {}
+  - it is no more than 256, and the oldest are dropped: |
+      local term = kept()
+      for i = 1, 300 do
+         term:write('\27]7;n' .. i .. '\7')
+      end
+      local got = term:unrecognised()
+      expect(#got).to_be(256)
+      expect(got[1].text).to_be 'n45'
+      expect(got[256].text).to_be 'n300'
+  - it does not change the screen: |
+      local term = kept()
+      term:write 'ab\27]7;a\7\27[99zcd'
+      expect(term:row(0)).to_match '^abcd'

@@ -172,3 +172,14 @@ describe a backend that returns the state that libvterm keeps:
       if not both_backends then pending 'needs both backends' end
       expect(state_differences(noise(3000), 24, 80)).to_equal {}
       expect(state_differences(noise(3000), 7, 13, true, {9, 21})).to_equal {}
+
+describe a backend that keeps the sequences that libvterm does not recognise:
+- context when the program writes every kind of them, whole and in parts:
+  - it keeps the same as the other backend: |
+      if not both_backends then pending 'needs both backends' end
+      expect(unrecognised_differences('\1\27]7;file:///tmp/x\7\27]133;A\27\\\27[?99;;7z\27[1:2;3z\27[1 z\27P1$rtext\27\\\27_apc\27\\\27^pm\27\\\27Xsos\27\\')).to_equal {}
+      expect(unrecognised_differences('\27]7;a' .. 'bc\7' .. string.rep('\27]7;n\7', 300))).to_equal {}
+- context when the program writes a long stream of everything:
+  - it keeps the same as the other backend: |
+      if not both_backends then pending 'needs both backends' end
+      expect(unrecognised_differences(noise(3000))).to_equal {}
