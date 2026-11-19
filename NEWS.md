@@ -2,6 +2,9 @@
 
 ## Noteworthy changes in release ?.? (????-??-??) [?]
 
+
+## Noteworthy changes in release 0.5 (2026-11-19) [stable]
+
 ### New Features
 
   - `lvterm.new(rows, cols, {changes = true})` makes a terminal that keeps
