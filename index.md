@@ -90,6 +90,14 @@ about a position that is not on the screen is an error.
 | `term:cell(row, col)`        | returns the text, width and attributes of one cell |
 | `term:runs(row)`             | returns one row as runs of cells that are drawn alike |
 | `term:cursor()`              | returns the row and column of the cursor       |
+| `term:changes()`             | returns what changed on the screen since the last call |
+| `term:unrecognised()`        | returns the sequences that libvterm does not recognise |
+| `term:pen()`                 | returns the attributes and colors that the program set to write with |
+| `term:line_info(row)`        | returns whether a line is double width or height, or continues the line above |
+| `term:is_eol(row, col)`      | returns whether only blanks follow a cell |
+| `term:selections()`          | returns the sequences for the selection that the program wrote |
+| `term:palette_color(index)`  | returns the `red`, `green` and `blue` of a color of the palette |
+| `term:default_colors()`      | returns the foreground and background that cells have by default |
 | `term:size()`                | returns the height and width                   |
 | `term:resize(rows, cols)`    | changes the size, and returns the terminal     |
 | `term:reset(hard)`           | returns to the initial state, and forgets the screen unless `hard` is `false` |
@@ -115,6 +123,123 @@ half of a wide character is in the run of the character, whatever it is drawn
 like.  The `ffi` backend keeps the runs of a row until its cells change, and gives the
 same table again, which is not to be changed, so a program that draws can leave a row
 that is the same as it was.
+
+### What changed on the screen
+
+A program that draws the screen again each time that a program writes to it
+can leave what is the same as it was, if the terminal is made to keep what
+changes:
+
+```lua
+local term = lvterm.new(24, 80, {changes = true})
+term:write 'hello\n'
+for _, change in ipairs(term:changes()) do
+   print(change.kind, change.row, change.col)
+end
+```
+
+`term:changes()` returns a list of tables, oldest first, and removes
+them. Each has a `kind`, and its positions are from 0 like the others:
+
+ * `'damage'`: the cells of the rectangle that begins at `row` and `col`, and
+   is `rows` high and `cols` wide, have changed.
+ * `'move'`: the cells that were at `from_row` and `from_col` are now where the
+   rectangle that begins at `row` and `col`, and is `rows` high and `cols`
+   wide, is. A screen that scrolls reports a move of the lines that stay for each
+   scroll, and a damage of only the new lines, so a program can shift what it
+   drew, and draw those. The changes in order, done to a copy of the screen,
+   reproduce the screen.
+ * `'cursor'`: the cursor is at `row` and `col`, which it was at `from_row` and
+   `from_col` when the changes were last taken, and `visible` is whether it
+   is shown. It is the last, there is one however far it went, and there is
+   none if it is where it was.
+
+The terminal being resized, reset, or switched to the other screen is a damage
+of all of it, and so is what remains when more than 1024 changes were made
+since they were taken, so a program that does not read them for a while does not make
+the terminal grow.
+
+The `ffi` backend passes the rectangles that libvterm passes in the registers
+that x86-64 and arm64 pass them in, so it keeps changes there, except for
+Windows. Anywhere else `lvterm.new` with `changes = true` fails, and the
+`core` backend does it.
+
+
+### Colors
+
+A cell that a program set to a color of the palette of 256 has the index in its
+`fg` or `bg`, and a cell that it has not has nil. What those are drawn in is
+read with `term:palette_color(index)`, which is a table with `red`, `green`
+and `blue` from 0 to 255, and `term:default_colors()`, which is the foreground
+and then the background. A program that draws the screen with its own colors
+changes them with `term:set_palette_color(index, color)` and
+`term:set_default_colors(fg, bg)`, which keeps one that is nil, and
+`term:set_bold_highbright(true)` has bold text of the first 8 colors drawn in
+the 8 that are bright, as many terminals do.
+
+
+### The clipboard
+
+A program that copies text to the clipboard of its terminal, or reads what is in
+it, writes a sequence for the selection (OSC 52). A terminal that is made with
+`lvterm.new(rows, cols, {selections = true})` keeps those sequences, and
+`term:selections()` returns them, oldest first, and removes them. Each is a table with
+a `kind` and a `mask`, which is the letters of the sequence for the
+selections: `c` for the clipboard, `p` for the primary selection, `q` for
+the secondary, `s` for the selection and `0` to `7` for the cut buffers.
+
+ * `kind = 'set'` has the `text` to set, decoded, and
+   whole, though the sequence came in parts.
+ * `kind = 'query'` is a sequence that reads the text, which
+   `term:send_selection(mask, text)` replies to, as the terminal does, with a
+   sequence that `term:output()` returns.
+
+At most 64 are kept until they are taken, and the oldest are dropped after
+that. A terminal that is not made with `selections = true` discards the sequence.
+Like the changes of the screen, they need the `core` backend where the `ffi`
+backend cannot take the fragments of text that libvterm passes by value.
+
+
+### The state that libvterm keeps
+
+`term:pen()` is what the program set the attributes of what it writes next to:
+`bold`, `italic`, `blink`, `reverse`, `conceal` and `strike`, `underline` as 0
+to 3, `font` from 0 to 9, and `fg` and `bg` as a cell has them.
+
+`term:line_info(row)` is whether the program made a line of characters that
+are twice as wide (`doublewidth`), or one half of a line of characters that are
+twice as high (`doubleheight` is `'top'` or `'bottom'`, or nil), and whether
+the line is the rest of one above it that was too long for the screen
+(`continuation`), so that text that is copied from the screen can be joined
+again. `term:is_eol(row, col)` is true if only blanks follow a cell.
+
+`term:set_reflow(true)` has a terminal join the lines that its width made, and
+divide them again for the new width, when it is resized, as many terminals do.
+
+
+### Sequences that libvterm does not recognise
+
+A terminal that is made with `lvterm.new(rows, cols, {unrecognised = true})` keeps
+the control characters, control sequences and strings that libvterm has no use
+for, so a caller can act on those that it handles, such as the one that
+returns the directory that a shell is in (OSC 7), or marks a prompt
+(OSC 133). `term:unrecognised()` returns them oldest first, and removes them. Each
+is a table with a `kind`:
+
+ * `'control'` has the `byte`.
+ * `'csi'` has the `leader`, which is `''` or a character such as `'?'`, the
+   numbers in `args`, which are `false` for one that was left out, `more`, which
+   is true for each that is followed by a part of it after a colon, the
+   `intermediate` characters, and the `command` letter.
+ * `'osc'` has the `command` number and the `text`.
+ * `'dcs'` has the `command` and the `text`.
+ * `'apc'`, `'pm'` and `'sos'` have the `text`.
+
+Text that was written in parts is whole. At most 256 are kept until they are
+taken, and the oldest are dropped after that. libvterm keeps for itself what
+it recognises, including modes that it discards, so those are not returned. This needs
+the `core` backend where the `ffi` backend cannot take the fragments of text
+that libvterm passes by value.
 
 
 ## 3. Scrollback and the alternate screen
