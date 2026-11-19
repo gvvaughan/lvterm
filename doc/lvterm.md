@@ -91,6 +91,7 @@ about a position that is not on the screen is an error.
 | `term:runs(row)`             | returns one row as runs of cells that are drawn alike |
 | `term:cursor()`              | returns the row and column of the cursor       |
 | `term:changes()`             | returns what changed on the screen since the last call |
+| `term:selections()`          | returns the sequences for the selection that the program wrote |
 | `term:palette_color(index)`  | returns the `red`, `green` and `blue` of a color of the palette |
 | `term:default_colors()`      | returns the foreground and background that cells have by default |
 | `term:size()`                | returns the height and width                   |
@@ -171,6 +172,28 @@ changes them with `term:set_palette_color(index, color)` and
 `term:set_default_colors(fg, bg)`, which keeps one that is nil, and
 `term:set_bold_highbright(true)` has bold text of the first 8 colors drawn in
 the 8 that are bright, as many terminals do.
+
+
+### The clipboard
+
+A program that copies text to the clipboard of its terminal, or reads what is in
+it, writes a sequence for the selection (OSC 52). A terminal that is made with
+`lvterm.new(rows, cols, {selections = true})` keeps those sequences, and
+`term:selections()` returns them, oldest first, and removes them. Each is a table with
+a `kind` and a `mask`, which is the letters of the sequence for the
+selections: `c` for the clipboard, `p` for the primary selection, `q` for
+the secondary, `s` for the selection and `0` to `7` for the cut buffers.
+
+ * `kind = 'set'` has the `text` to set, decoded, and
+   whole, though the sequence came in parts.
+ * `kind = 'query'` is a sequence that reads the text, which
+   `term:send_selection(mask, text)` replies to, as the terminal does, with a
+   sequence that `term:output()` returns.
+
+At most 64 are kept until they are taken, and the oldest are dropped after
+that. A terminal that is not made with `selections = true` discards the sequence.
+Like the changes of the screen, they need the `core` backend where the `ffi`
+backend cannot take the fragments of text that libvterm passes by value.
 
 
 ## 3. Scrollback and the alternate screen

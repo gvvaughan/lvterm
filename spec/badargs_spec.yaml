@@ -154,3 +154,11 @@ specify lvterm:
 - describe set_bold_highbright:
   - context with bad arguments:
       badargs.diagnose('lvterm.terminal.set_bold_highbright (table, <?boolean>)', term.set_bold_highbright)
+
+- describe selections:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.selections (table)', term.selections)
+
+- describe send_selection:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.send_selection (table, string, string)', term.send_selection)

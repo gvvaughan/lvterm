@@ -116,7 +116,9 @@ end
 -- @tparam[opt] table options `scrollback`, the most lines to keep of those
 --   that scroll off the top, which is as many as there is memory for if it
 --   is not given, and none if it is 0, and `changes`, which is true to keep
---   what changes on the screen, for `lvterm.terminal.Terminal:changes`
+--   what changes on the screen, for `lvterm.terminal.Terminal:changes`, and
+--   `selections`, which is true to keep the sequences for the selection that a
+--   program writes, for `lvterm.terminal.Terminal:selections`
 -- @treturn lvterm.terminal.Terminal
 local function new(rows, cols, options)
    rows, cols = rows or 24, cols or 80
@@ -130,6 +132,10 @@ local function new(rows, cols, options)
    local changes = options and options.changes
    if changes ~= nil and type(changes) ~= 'boolean' then
       error(format('the `changes` of a terminal must be a boolean, not %s', tostring(changes)), 2)
+   end
+   local selections = options and options.selections
+   if selections ~= nil and type(selections) ~= 'boolean' then
+      error(format('the `selections` of a terminal must be a boolean, not %s', tostring(selections)), 2)
    end
    return terminal.new(backend.new(rows, cols, options), rows, cols)
 end

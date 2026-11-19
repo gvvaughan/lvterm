@@ -1,0 +1,107 @@
+before: |
+  lvterm = require 'lvterm'
+
+  -- Whether the backend can keep selections, which the ffi backend cannot where it cannot take a structure in a
+  -- register.
+  function cannot()
+     return not pcall(lvterm.new, 2, 2, {selections = true})
+  end
+
+  function kept()
+     if cannot() then pending 'the backend cannot keep selections here' end
+     return lvterm.new(5, 40, {selections = true})
+  end
+
+  local alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+  -- Base64 of a string.
+  function base64(s)
+     local out = {}
+     for i = 1, #s, 3 do
+        local a, b, c = string.byte(s, i, i + 2)
+        local n = a * 65536 + (b or 0) * 256 + (c or 0)
+        for k = 3, 0, -1 do
+           local v = math.floor(n / 64 ^ k) % 64
+           out[#out + 1] = string.sub(alphabet, v + 1, v + 1)
+        end
+        if not b then
+           out[#out], out[#out - 1] = '=', '='
+        elseif not c then
+           out[#out] = '='
+        end
+     end
+     return table.concat(out)
+  end
+
+specify the selections of a program:
+- describe a terminal that is not made to keep them:
+  - it raises an error unless the terminal is made to record them: |
+      local term = lvterm.new(5, 40)
+      expect(term:selections()).to_raise 'made with `selections = true`'
+      expect(term:send_selection('c', 'x')).to_raise 'made with `selections = true`'
+  - it discards the sequence: |
+      local term = lvterm.new(5, 40)
+      term:write('ab\27]52;c;' .. base64 'hello' .. '\27\\cd')
+      expect(term:row(0)).to_match '^abcd'
+  - it is not made with a selections that is not a boolean: |
+      expect(lvterm.new(5, 40, {selections = 1})).to_raise 'must be a boolean'
+- describe a program that sets the clipboard:
+  - it has the text, and the letter of the selection: |
+      local term = kept()
+      term:write('\27]52;c;' .. base64 'hello' .. '\27\\')
+      expect(term:selections()).to_equal {{kind = 'set', mask = 'c', text = 'hello'}}
+  - it has the text when the sequence ends with the bell: |
+      local term = kept()
+      term:write('\27]52;c;' .. base64 'bell' .. '\7')
+      expect(term:selections()).to_equal {{kind = 'set', mask = 'c', text = 'bell'}}
+  - it has the letters of all of the selections: |
+      local term = kept()
+      term:write('\27]52;pq;' .. base64 'two' .. '\27\\')
+      expect(term:selections()[1].mask).to_be 'pq'
+  - it has text that has bytes that are not text, and is long, whole: |
+      local term = kept()
+      local text = string.rep('x\0\255 \n', 3000)
+      term:write('\27]52;c;' .. base64(text) .. '\27\\')
+      expect(term:selections()[1].text).to_be(text)
+  - it has text that was written in parts, whole: |
+      local term = kept()
+      local encoded = base64 'in parts of a text'
+      term:write('\27]52;c;' .. string.sub(encoded, 1, 8))
+      term:write(string.sub(encoded, 9, 16))
+      term:write(string.sub(encoded, 17) .. '\27\\')
+      expect(term:selections()[1].text).to_be 'in parts of a text'
+  - it returns each, in order, and not again: |
+      local term = kept()
+      term:write('\27]52;c;' .. base64 'one' .. '\27\\\27]52;c;' .. base64 'two' .. '\27\\')
+      local got = term:selections()
+      expect(#got).to_be(2)
+      expect(got[1].text).to_be 'one'
+      expect(got[2].text).to_be 'two'
+      expect(term:selections()).to_equal {}
+  - it drops the oldest of more than 64: |
+      local term = kept()
+      for i = 1, 70 do
+         term:write('\27]52;c;' .. base64('n' .. i) .. '\27\\')
+      end
+      local got = term:selections()
+      expect(#got).to_be(64)
+      expect(got[1].text).to_be 'n7'
+      expect(got[64].text).to_be 'n70'
+  - it does not change the screen: |
+      local term = kept()
+      term:write('ab\27]52;c;' .. base64 'hello' .. '\27\\cd')
+      expect(term:row(0)).to_match '^abcd'
+- describe a program that reads the clipboard:
+  - it has a query, which is replied to with the text: |
+      local term = kept()
+      term:write '\27]52;c;?\27\\'
+      expect(term:selections()).to_equal {{kind = 'query', mask = 'c'}}
+      term:send_selection('c', 'hello')
+      expect(term:output()).to_be('\27]52;c;' .. base64 'hello' .. '\27\\')
+  - the reply is for the selections of the letters: |
+      local term = kept()
+      term:send_selection('p', 'primary')
+      expect(term:output()).to_be('\27]52;p;' .. base64 'primary' .. '\27\\')
+  - it is refused a selection that is not one of those: |
+      local term = kept()
+      expect(term:send_selection('z', 'x')).to_raise 'one of the letters'

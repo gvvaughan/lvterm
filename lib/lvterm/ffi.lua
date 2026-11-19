@@ -20,10 +20,12 @@
 -- makes for every line, are not looked up in the environment, which is slower
 -- when it checks that a variable is declared.
 local band = require('bit').band
+local rshift = require('bit').rshift
 local concat = table.concat
 local floor = math.floor
 local max = math.max
 local min = math.min
+local remove = table.remove
 local schar = string.char
 
 local ffi = require 'ffi'
@@ -96,6 +98,11 @@ typedef struct {
    int (*sb_clear)(void *user);
 } VTermScreenCallbacks;
 
+typedef struct {
+   void *set;
+   void *query;
+} VTermSelectionCallbacks;
+
 typedef void VTermOutputCallback(const char *s, size_t len, void *user);
 
 VTerm *vterm_new(int rows, int cols);
@@ -117,6 +124,8 @@ void vterm_mouse_button(VTerm *vt, int button, int pressed, int mod);
 VTermState *vterm_obtain_state(VTerm *vt);
 int  vterm_state_set_termprop(VTermState *state, int prop, VTermValue *val);
 void vterm_state_focus_in(VTermState *state);
+void vterm_state_set_selection_callbacks(VTermState *state, const VTermSelectionCallbacks *callbacks, void *user, char *buffer, size_t buflen);
+void vterm_state_send_selection(VTermState *state, int mask, VTermStringFragment frag);
 void vterm_state_focus_out(VTermState *state);
 void vterm_state_get_cursorpos(const VTermState *state, VTermPos *cursorpos);
 void vterm_state_get_default_colors(const VTermState *state, VTermColor *default_fg, VTermColor *default_bg);
@@ -339,7 +348,7 @@ end
 -- calling convention passes a structure of up to 16 bytes in integer registers (x86-64 and arm64, except for
 -- Windows) it is the same as the registers of integers that are declared here instead: a rectangle is two
 -- of 64 bits, and a position is one.  Those are copied to where their 32 bit fields are read.
-local CHANGES = (ffi.arch == 'x64' or ffi.arch == 'arm64') and ffi.os ~= 'Windows'
+local BYVALUE = (ffi.arch == 'x64' or ffi.arch == 'arm64') and ffi.os ~= 'Windows'
 local box = ffi.new 'int64_t[4]'
 local ints = ffi.cast('int32_t *', box)
 
@@ -389,6 +398,45 @@ local function cursor_moved(pos, old, visible, user)
 end
 
 
+-- The most selections that are kept until they are taken, after which the oldest are dropped.
+local MOST_SELECTIONS = 64
+
+-- A sequence for the selection that a program wrote (OSC 52).  libvterm passes the fragment
+-- of text by value, which is passed as the two registers that it is in, as it is above: the pointer, and
+-- then its length and whether it is the first and the last.
+local uints = ffi.cast('uint32_t *', box)
+
+local function kept(h, event)
+   h.sels[#h.sels + 1] = event
+   if #h.sels > MOST_SELECTIONS then
+      remove(h.sels, 1)
+   end
+end
+
+local function selected(mask, lo, hi, user)
+   local h = handle_of(user)
+   box[0], box[1] = lo, hi
+   local bits = uints[2]
+   local text = ffi.string(ffi.cast('const char *', lo), band(bits, 0x3fffffff))
+   if band(rshift(bits, 30), 1) == 1 then
+      h.selpart = {}
+   end
+   if h.selpart then
+      h.selpart[#h.selpart + 1] = text
+      if band(rshift(bits, 31), 1) == 1 then
+         kept(h, {kind = 'set', mask = mask, text = concat(h.selpart)})
+         h.selpart = nil
+      end
+   end
+   return 1
+end
+
+local function queried(mask, user)
+   kept(handle_of(user), {kind = 'query', mask = mask})
+   return 1
+end
+
+
 local function sent(bytes, len, user)
    local h = handle_of(user)
    h.out[#h.out + 1] = ffi.string(bytes, len)
@@ -404,8 +452,9 @@ local forgotten_cb = ffi.cast('int (*)(void *)', forgotten)
 local property_cb = ffi.cast('int (*)(int, VTermValue *, void *)', property)
 local bell_cb = ffi.cast('int (*)(void *)', rang)
 local sent_cb = ffi.cast('VTermOutputCallback *', sent)
-local damaged_cb, moved_cb, cursor_moved_cb
-if CHANGES then
+local damaged_cb, moved_cb, cursor_moved_cb, selected_cb, queried_cb
+local selection_callbacks = ffi.new 'VTermSelectionCallbacks'
+if BYVALUE then
    -- Kept as long as the process lives, like the others.
    damaged_cb = ffi.cast('int (*)(int64_t, int64_t, void *)', damaged)
    moved_cb = ffi.cast('int (*)(int64_t, int64_t, int64_t, int64_t, void *)', moved)
@@ -413,6 +462,10 @@ if CHANGES then
    callbacks.damage = ffi.cast('void *', damaged_cb)
    callbacks.moverect = ffi.cast('void *', moved_cb)
    callbacks.movecursor = ffi.cast('void *', cursor_moved_cb)
+   selected_cb = ffi.cast('int (*)(int, int64_t, int64_t, void *)', selected)
+   queried_cb = ffi.cast('int (*)(int, void *)', queried)
+   selection_callbacks.set = ffi.cast('void *', selected_cb)
+   selection_callbacks.query = ffi.cast('void *', queried_cb)
 end
 callbacks.sb_pushline = pushed_cb
 callbacks.sb_popline = popped_cb
@@ -433,8 +486,9 @@ local Handle
 --   changes on the screen for `changes`
 -- @treturn Handle
 local function new(rows, cols, options)
-   if options and options.changes and not CHANGES then
-      error('the ffi backend cannot provide the changes of the screen on this platform: use the core backend', 3)
+   if options and (options.changes or options.selections) and not BYVALUE then
+      error('the ffi backend cannot provide the changes of the screen, or the selection, on this platform: ' ..
+            'use the core backend', 3)
    end
    local vt = ffi.gc(C.vterm_new(rows, cols), C.vterm_free)
    C.vterm_set_utf8(vt, 1)
@@ -461,6 +515,11 @@ local function new(rows, cols, options)
    C.vterm_output_set_callback(vt, sent_cb, user)
    C.vterm_screen_set_callbacks(self.screen, callbacks, user)
    C.vterm_screen_enable_altscreen(self.screen, 1)
+   if options and options.selections then
+      -- Kept for as long as the terminal is, as libvterm decodes and encodes in it.
+      self.selbuf, self.sels = ffi.new('char[4096]'), {}
+      C.vterm_state_set_selection_callbacks(self.state, selection_callbacks, user, self.selbuf, 4096)
+   end
    if self.recording then
       -- Damage is merged by row, and each scroll is reported as it is made, as a move and the damage of the lines that it
       -- makes.  The mode that merges scrolls, which is 3, adds those that are made before the changes are taken, whichever
@@ -926,6 +985,33 @@ local function set_bold_highbright(self, on)
 end
 
 
+--- Take the sequences for the selection that the program wrote.
+-- @function selections
+-- @treturn table the selections, oldest first: `set` with the `mask` and the `text`, or `query` with the `mask`
+local function selections(self)
+   if not self.sels then
+      error('the selections are kept only by a terminal that is made with `selections = true`', 3)
+   end
+   local out = self.sels
+   self.sels = {}
+   return out
+end
+
+
+--- Write the reply to a sequence that reads the selection.
+-- @function send_selection
+-- @int mask the bits of the selections that the reply is for
+-- @string text what the selection is
+local function send_selection(self, mask, text)
+   if not self.sels then
+      error('the selections are kept only by a terminal that is made with `selections = true`', 3)
+   end
+   local frag = ffi.new 'VTermStringFragment'
+   frag.str, frag.len, frag.initial, frag.final = text, #text, 1, 1
+   C.vterm_state_send_selection(self.state, mask, frag)
+end
+
+
 --- Take how many times the program rang the bell.
 -- @function bells
 -- @treturn int the number of bells since the last call, which is forgotten
@@ -968,6 +1054,8 @@ Handle = {
    default_colors = default_colors,
    set_default_colors = set_default_colors,
    set_bold_highbright = set_bold_highbright,
+   selections = selections,
+   send_selection = send_selection,
 }
 Handle.__index = Handle
 

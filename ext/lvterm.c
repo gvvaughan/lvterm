@@ -62,6 +62,21 @@ typedef struct
 	VTermScreenCell	cells[1];
 } Line;
 
+/* A sequence for the selection that a program wrote: a text that it set, or
+   a read of the text. */
+typedef struct
+{
+	int		set;		/* 0 for a query */
+	int		mask;
+	char		*text;
+	size_t		len;
+} Selection;
+
+/* The most that are kept until they are taken, after which the oldest are
+   dropped. */
+#define MOST_SELECTIONS 64
+#define SELECTION_BUFFER 4096
+
 /* A change of the screen, that is kept until `changes` takes it: a damage has
    the rectangle in V, a move has the rectangle that it moved to and then the
    row and column that it moved from. */
@@ -115,6 +130,14 @@ typedef struct
 	int		from_row, from_col;
 	int		row, col;
 	int		visible;
+
+	int		selecting;	/* the selections are kept */
+	char		*selbuf;	/* where libvterm decodes and encodes them */
+	Selection	*sels;
+	size_t		nsels;
+	char		*selpart;	/* the text that is still coming */
+	size_t		selpartlen;
+	size_t		selpartcap;
 } Handle;
 
 
@@ -422,6 +445,98 @@ sent(const char *bytes, size_t len, void *user)
 }
 
 
+static void
+dropselection(Selection *s)
+{
+	free(s->text);
+	s->text = NULL;
+}
+
+
+/* Keep a selection, which is of the text that is at TEXT unless it is a query,
+   and drop the oldest if there are too many. */
+static void
+keepselection(Handle *h, int set, int mask, char *text, size_t len)
+{
+	Selection *p;
+
+	if (h->nsels == MOST_SELECTIONS)
+	{
+		dropselection(&h->sels[0]);
+		memmove(h->sels, h->sels + 1, (MOST_SELECTIONS - 1) * sizeof (Selection));
+		h->nsels--;
+	}
+	p = (Selection *) realloc(h->sels, (h->nsels + 1) * sizeof (Selection));
+	if (p == NULL)
+	{
+		free(text);
+		return;
+	}
+	h->sels = p;
+	h->sels[h->nsels].set = set;
+	h->sels[h->nsels].mask = mask;
+	h->sels[h->nsels].text = text;
+	h->sels[h->nsels].len = len;
+	h->nsels++;
+}
+
+
+static int
+selectionset(VTermSelectionMask mask, VTermStringFragment frag, void *user)
+{
+	Handle *h = (Handle *) user;
+
+	if (frag.initial)
+	{
+		free(h->selpart);
+		h->selpart = NULL;
+		h->selpartlen = h->selpartcap = 0;
+	}
+	else if (h->selpart == NULL)
+		return 1;
+
+	if (h->selpartlen + frag.len + 1 > h->selpartcap)
+	{
+		size_t cap = h->selpartcap ? h->selpartcap : 64;
+		char *p;
+
+		while (cap < h->selpartlen + frag.len + 1)
+			cap *= 2;
+		p = (char *) realloc(h->selpart, cap);
+		if (p == NULL)
+			return 1;
+		h->selpart = p;
+		h->selpartcap = cap;
+	}
+	memcpy(h->selpart + h->selpartlen, frag.str, frag.len);
+	h->selpartlen += frag.len;
+
+	if (frag.final)
+	{
+		keepselection(h, 1, (int) mask, h->selpart, h->selpartlen);
+		h->selpart = NULL;
+		h->selpartlen = h->selpartcap = 0;
+	}
+	return 1;
+}
+
+
+static int
+selectionquery(VTermSelectionMask mask, void *user)
+{
+	keepselection((Handle *) user, 0, (int) mask, NULL, 0);
+	return 1;
+}
+
+
+/* Must stay for as long as a terminal does, as libvterm keeps the pointer. */
+static const VTermSelectionCallbacks selection_callbacks =
+{
+	selectionset,
+	selectionquery
+};
+
+
 /* Keep a change, unless there are too many, when all of the screen is what
    has changed. */
 static void
@@ -562,11 +677,23 @@ core_new(lua_State *L)
 		lua_getfield(L, 3, "changes");
 		h->recording = lua_toboolean(L, -1);
 		lua_pop(L, 1);
+
+		lua_getfield(L, 3, "selections");
+		h->selecting = lua_toboolean(L, -1);
+		lua_pop(L, 1);
 	}
 
 	vterm_output_set_callback(h->vt, sent, h);
 	vterm_screen_set_callbacks(h->screen, &callbacks, h);
 	vterm_screen_enable_altscreen(h->screen, 1);
+	if (h->selecting)
+	{
+		h->selbuf = (char *) malloc(SELECTION_BUFFER);
+		if (h->selbuf == NULL)
+			return luaL_error(L, "out of memory");
+		vterm_state_set_selection_callbacks(h->state, &selection_callbacks, h,
+						    h->selbuf, SELECTION_BUFFER);
+	}
 	/* Damage is merged by row, and each scroll is reported as it is made, as a
 	   move and the damage of the lines that it makes.  The mode that merges
 	   scrolls adds those that are made before the changes are taken, whichever
@@ -598,6 +725,14 @@ handle_gc(lua_State *L)
 		h->out = NULL;
 		free(h->changes);
 		h->changes = NULL;
+		while (h->nsels > 0)
+			dropselection(&h->sels[--h->nsels]);
+		free(h->sels);
+		h->sels = NULL;
+		free(h->selpart);
+		h->selpart = NULL;
+		free(h->selbuf);
+		h->selbuf = NULL;
 		free(h->title);
 		h->title = NULL;
 		free(h->partial);
@@ -1353,6 +1488,68 @@ handle_changes(lua_State *L)
 
 
 /***
+Take the sequences for the selection that the program wrote.
+@function selections
+@treturn table the selections, oldest first: `set` with the `mask` and the `text`, or `query` with the `mask`
+*/
+static int
+handle_selections(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+	size_t i;
+
+	if (!h->selecting)
+		return luaL_error(L, "the selections are kept only by a terminal that is made with `selections = true`");
+
+	lua_createtable(L, (int) h->nsels, 0);
+	for (i = 0; i < h->nsels; i++)
+	{
+		const Selection *s = &h->sels[i];
+
+		lua_newtable(L);
+		lua_pushstring(L, s->set ? "set" : "query");
+		lua_setfield(L, -2, "kind");
+		setint(L, "mask", s->mask);
+		if (s->set)
+		{
+			lua_pushlstring(L, s->text ? s->text : "", s->len);
+			lua_setfield(L, -2, "text");
+		}
+		lua_rawseti(L, -2, (int) i + 1);
+	}
+	while (h->nsels > 0)
+		dropselection(&h->sels[--h->nsels]);
+	return 1;
+}
+
+
+/***
+Write the reply to a sequence that reads the selection.
+@function send_selection
+@int mask the bits of the selections that the reply is for
+@string text what the selection is
+*/
+static int
+handle_send_selection(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+	VTermStringFragment frag;
+	size_t len;
+	const char *text;
+
+	if (!h->selecting)
+		return luaL_error(L, "the selections are kept only by a terminal that is made with `selections = true`");
+	text = luaL_checklstring(L, 3, &len);
+	frag.str = text;
+	frag.len = len;
+	frag.initial = 1;
+	frag.final = 1;
+	vterm_state_send_selection(h->state, (VTermSelectionMask) luaL_checkinteger(L, 2), frag);
+	return 0;
+}
+
+
+/***
 Take how many times the program rang the bell.
 @function bells
 @treturn int the number of bells since the last call, which is forgotten
@@ -1422,6 +1619,8 @@ static const luaL_Reg handle_methods[] =
 	{"title",	handle_title},
 	{"bells",	handle_bells},
 	{"changes",	handle_changes},
+	{"selections",	handle_selections},
+	{"send_selection",	handle_send_selection},
 	{"palette_color",	handle_palette_color},
 	{"set_palette_color",	handle_set_palette_color},
 	{"default_colors",	handle_default_colors},

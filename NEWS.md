@@ -27,6 +27,17 @@
     colors is then an index of the bright 8.  Both backends return
     the same colors.
 
+  - `lvterm.new(rows, cols, {selections = true})` makes a terminal that
+    keeps the sequences for the selection that a program writes
+    (OSC 52).  `selections()` returns that, oldest first, as `set` with the
+    `mask` of letters of the sequence and its decoded `text`,
+    whole though it was written in parts, and `query`, which
+    `send_selection(mask, text)` replies to, so that `output()` has the
+    reply.  At most 64 are kept.  A terminal that is not made to keep
+    them discards the sequence, as before.  Both backends return the same
+    selections, and the `ffi` backend, like for `changes`, needs the
+    platforms that pass a small structure in registers.
+
 ### Bug fixes
 
   - `write` holds back the first bytes of a character of UTF-8 whose other

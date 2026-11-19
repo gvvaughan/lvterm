@@ -17,12 +17,15 @@
 local _ENV = require 'lvterm._normalize'.strictness() {
    concat = table.concat,
    error = error,
+   find = string.find,
    format = string.format,
+   gmatch = string.gmatch,
    ipairs = ipairs,
    pairs = pairs,
    pcall = pcall,
    require = require,
    setmetatable = setmetatable,
+   sub = string.sub,
    tostring = tostring,
    type = type,
 }
@@ -605,6 +608,71 @@ local function set_bold_highbright(self, on)
 end
 
 
+-- The letters that stand for the selections in the sequence for the selection, in the order of the bits of libvterm.
+local SELECTIONS = 'cpqs01234567'
+
+-- The letters of a mask of the bits of the selections.
+local function letters(mask)
+   local out = {}
+   for i = 1, #SELECTIONS do
+      local bit = 2 ^ (i - 1)
+      if mask % (2 * bit) >= bit then
+         out[#out + 1] = sub(SELECTIONS, i, i)
+      end
+   end
+   return concat(out)
+end
+
+-- The mask of the bits of the selections that the letters stand for.
+local function bits(names)
+   local mask = 0
+   for letter in gmatch(names, '.') do
+      local i = find(SELECTIONS, letter, 1, true)
+      if not i then
+         error(format('a selection is one of the letters `%s`, not `%s`', SELECTIONS, letter), 3)
+      end
+      mask = mask + 2 ^ (i - 1)
+   end
+   return mask
+end
+
+
+--- Take the sequences for the selection that the program wrote.
+-- A program that copies text to the clipboard of its terminal, or reads what it has (OSC 52), writes
+-- sequences that only a terminal that is made with `selections = true` keeps; others discard them.
+-- Each is a table with a `kind`, and the `mask` that is the letters of the sequence for the selections,
+-- which are `c` for the clipboard, `p` for the primary selection, `q` for the secondary, `s` for the
+-- selection, and `0` to `7` for the cut buffers:
+--
+--  * `'set'`: the program set the selections to `text`.
+--  * `'query'`: a sequence that reads what the selections are, which `send_selection` replies to.
+--
+-- At most 64 are kept until they are taken, and the oldest are dropped after that.
+-- @function selections
+-- @treturn table the selections, oldest first, which are removed from the terminal
+-- @usage
+--    local term = lvterm.new(24, 80, {selections = true})
+--    term:write '\27]52;c;aGVsbG8=\27\\'
+--    term:selections()  --> {{kind = 'set', mask = 'c', text = 'hello'}}
+local function selections(self)
+   local out = self.handle:selections()
+   for _, s in ipairs(out) do
+      s.mask = letters(s.mask)
+   end
+   return out
+end
+
+
+--- Write the reply to a sequence that reads the selection.
+-- @function send_selection
+-- @string mask the letters of the selections that the reply is for, such as `'c'`
+-- @string text what the selection is
+local function send_selection(self, mask, text)
+   self.handle:send_selection(bits(mask), text)
+   return self
+end
+
+
 --- Take what has changed on the screen since the last call.
 -- A terminal that is made with `changes = true` keeps what a program changes on
 -- its screen, in order, until they are taken, so that a program that draws the
@@ -697,6 +765,8 @@ local Terminal = {
    title = argscheck('lvterm.terminal.title (table)', title),
    bells = argscheck('lvterm.terminal.bells (table)', bells),
    changes = argscheck('lvterm.terminal.changes (table)', changes),
+   selections = argscheck('lvterm.terminal.selections (table)', selections),
+   send_selection = argscheck('lvterm.terminal.send_selection (table, string, string)', send_selection),
    palette_color = argscheck('lvterm.terminal.palette_color (table, int)', palette_color),
    set_palette_color = argscheck('lvterm.terminal.set_palette_color (table, int, table)', set_palette_color),
    default_colors = argscheck('lvterm.terminal.default_colors (table)', default_colors),

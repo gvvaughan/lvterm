@@ -87,6 +87,35 @@ local function described(term)
 end
 
 
+--- What the `ffi` and `core` backends disagree about the selections of a program.
+-- Each is made a terminal that keeps them, fed the same bytes, then replies to
+-- the query that there is, and what is taken and sent back is compared.
+-- @string stream what to write to both
+-- @treturn {string,...} descriptions of the differences, none if the same
+function selection_differences(stream)
+   local a = terminal.new(ffi_backend.new(3, 20, {selections = true}), 3, 20)
+   local b = terminal.new(core_backend.new(3, 20, {selections = true}), 3, 20)
+   a:write(stream)
+   b:write(stream)
+   local diffs = {}
+   local x, y = a:selections(), b:selections()
+   if #x ~= #y then
+      diffs[#diffs + 1] = string.format('%d selections against %d', #x, #y)
+   end
+   for i = 1, math.min(#x, #y) do
+      if x[i].kind ~= y[i].kind or x[i].mask ~= y[i].mask or x[i].text ~= y[i].text then
+         diffs[#diffs + 1] = 'selection ' .. i
+      end
+   end
+   a:send_selection('cp', 'answer')
+   b:send_selection('cp', 'answer')
+   if a:output() ~= b:output() then
+      diffs[#diffs + 1] = 'the reply'
+   end
+   return diffs
+end
+
+
 --- What the `ffi` and `core` backends disagree about the colors of a terminal.
 -- Each is made a terminal, which has some of its colors changed, and then
 -- fed bytes that use them, and the palette, the defaults and the cells compared.

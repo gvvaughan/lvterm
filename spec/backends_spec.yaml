@@ -148,3 +148,10 @@ describe a backend that has the colors of the terminal changed:
   - it draws the same as the other backend: |
       if not both_backends then pending 'needs both backends' end
       expect(color_differences '\27[1;31ma\27[38;5;9mb\27[38;2;1;2;3mc\27[0md').to_equal {}
+
+describe a backend that keeps the selection sequences of a program:
+- context when the program sets and reads them, in whole sequences and in parts:
+  - it keeps the same as the other backend: |
+      if not both_backends then pending 'needs both backends' end
+      expect(selection_differences('\27]52;c;aGVsbG8=\27\\\27]52;pq;d29ybGQ=\7\27]52;c;?\27\\')).to_equal {}
+      expect(selection_differences('\27]52;c;aGVs' .. 'bG8=\27\\' .. string.rep('\27]52;s;eA==\27\\', 70))).to_equal {}
