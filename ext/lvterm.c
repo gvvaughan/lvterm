@@ -1150,6 +1150,126 @@ handle_title(lua_State *L)
 }
 
 
+static void setint(lua_State *L, const char *name, int n);
+
+
+/* Push a color of libvterm as a table of `red`, `green` and `blue`. */
+static void
+pushrgb(lua_State *L, const VTermColor *col)
+{
+	lua_createtable(L, 0, 3);
+	setint(L, "red", col->rgb.red);
+	setint(L, "green", col->rgb.green);
+	setint(L, "blue", col->rgb.blue);
+}
+
+
+/* The color that is the table at index IDX, of `red`, `green` and `blue`. */
+static void
+checkrgb(lua_State *L, int idx, VTermColor *col)
+{
+	int c[3];
+	static const char *names[3] = {"red", "green", "blue"};
+	int i;
+
+	luaL_checktype(L, idx, LUA_TTABLE);
+	for (i = 0; i < 3; i++)
+	{
+		lua_getfield(L, idx, names[i]);
+		c[i] = (int) luaL_checkinteger(L, -1);
+		lua_pop(L, 1);
+	}
+	vterm_color_rgb(col, (uint8_t) c[0], (uint8_t) c[1], (uint8_t) c[2]);
+}
+
+
+/***
+The color that an index of the palette is.
+@function palette_color
+@int index the index, from 0 to 255
+@treturn table `red`, `green` and `blue`
+*/
+static int
+handle_palette_color(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+	VTermColor col;
+
+	vterm_state_get_palette_color(h->state, (int) luaL_checkinteger(L, 2), &col);
+	pushrgb(L, &col);
+	return 1;
+}
+
+
+/***
+Change the color that an index of the palette is.
+@function set_palette_color
+@int index the index, from 0 to 255
+@tparam table color `red`, `green` and `blue`
+*/
+static int
+handle_set_palette_color(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+	VTermColor col;
+
+	checkrgb(L, 3, &col);
+	vterm_state_set_palette_color(h->state, (int) luaL_checkinteger(L, 2), &col);
+	return 0;
+}
+
+
+/***
+The colors that cells are drawn in when the program has not set them.
+@function default_colors
+@treturn table foreground, with `red`, `green` and `blue`
+@treturn table background
+*/
+static int
+handle_default_colors(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+	VTermColor fg, bg;
+
+	vterm_state_get_default_colors(h->state, &fg, &bg);
+	pushrgb(L, &fg);
+	pushrgb(L, &bg);
+	return 2;
+}
+
+
+/***
+Change the colors that cells are drawn in when the program has not set them.
+@function set_default_colors
+@tparam table fg foreground, with `red`, `green` and `blue`
+@tparam table bg background
+*/
+static int
+handle_set_default_colors(lua_State *L)
+{
+	Handle *h = checkhandle(L);
+	VTermColor fg, bg;
+
+	checkrgb(L, 2, &fg);
+	checkrgb(L, 3, &bg);
+	vterm_screen_set_default_colors(h->screen, &fg, &bg);
+	return 0;
+}
+
+
+/***
+Whether bold text is drawn in the bright color of its palette index.
+@function set_bold_highbright
+@bool on true to draw it so
+*/
+static int
+handle_set_bold_highbright(lua_State *L)
+{
+	vterm_state_set_bold_highbright(checkhandle(L)->state, lua_toboolean(L, 2));
+	return 0;
+}
+
+
 /* Set the field NAME of the table at the top of the stack to the integer N. */
 static void
 setint(lua_State *L, const char *name, int n)
@@ -1302,6 +1422,11 @@ static const luaL_Reg handle_methods[] =
 	{"title",	handle_title},
 	{"bells",	handle_bells},
 	{"changes",	handle_changes},
+	{"palette_color",	handle_palette_color},
+	{"set_palette_color",	handle_set_palette_color},
+	{"default_colors",	handle_default_colors},
+	{"set_default_colors",	handle_set_default_colors},
+	{"set_bold_highbright",	handle_set_bold_highbright},
 	{NULL,		NULL}
 };
 

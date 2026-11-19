@@ -18,6 +18,7 @@ local _ENV = require 'lvterm._normalize'.strictness() {
    concat = table.concat,
    error = error,
    format = string.format,
+   ipairs = ipairs,
    pairs = pairs,
    pcall = pcall,
    require = require,
@@ -522,6 +523,88 @@ local function title(self)
 end
 
 
+-- A color that is a table of `red`, `green` and `blue`, each from 0 to 255.
+local function check_rgb(color, name)
+   if type(color) ~= 'table' then
+      error(format('%s is a table of red, green and blue, not %s', name, type(color)), 3)
+   end
+   for _, field in ipairs {'red', 'green', 'blue'} do
+      local n = color[field]
+      if type(n) ~= 'number' or n < 0 or n > 255 or n % 1 ~= 0 then
+         error(format('%s has %s from 0 to 255', name, field), 3)
+      end
+   end
+end
+
+
+-- An index into the palette of 256 colors.
+local function check_index(index)
+   if index < 0 or index > 255 then
+      error(format('an index into the palette is from 0 to 255, not %d', index), 3)
+   end
+end
+
+
+--- The color that an index of the palette is.
+-- The palette is the 256 colors that a program sets cells to with `ESC [ 38 ; 5`, and
+-- the colors of a cell that is of one, as `cell` returns them, are an index into it.
+-- @function palette_color
+-- @int index the index, from 0 to 255
+-- @treturn table `red`, `green` and `blue`
+local function palette_color(self, index)
+   check_index(index)
+   return self.handle:palette_color(index)
+end
+
+
+--- Change the color that an index of the palette is.
+-- @function set_palette_color
+-- @int index the index, from 0 to 255
+-- @tparam table color `red`, `green` and `blue`, each from 0 to 255
+local function set_palette_color(self, index, color)
+   check_index(index)
+   check_rgb(color, 'a color')
+   self.handle:set_palette_color(index, color)
+   return self
+end
+
+
+--- The colors that cells are drawn in when the program has not set them.
+-- A cell of those colors has a `fg` or `bg` of nil, as `cell` returns it.
+-- @function default_colors
+-- @treturn table foreground, with `red`, `green` and `blue`
+-- @treturn table background
+local function default_colors(self)
+   return self.handle:default_colors()
+end
+
+
+--- Change the colors that cells are drawn in when the program has not set them.
+-- @function set_default_colors
+-- @tparam[opt] table fg foreground, with `red`, `green` and `blue`, which is kept as it is if it is nil
+-- @tparam[opt] table bg background, which is kept as it is if it is nil
+local function set_default_colors(self, fg, bg)
+   local oldfg, oldbg = self.handle:default_colors()
+   if fg ~= nil then
+      check_rgb(fg, 'the foreground')
+   end
+   if bg ~= nil then
+      check_rgb(bg, 'the background')
+   end
+   self.handle:set_default_colors(fg or oldfg, bg or oldbg)
+   return self
+end
+
+
+--- Whether bold text is drawn in the bright color of its palette index.
+-- @function set_bold_highbright
+-- @bool on true to draw it so
+local function set_bold_highbright(self, on)
+   self.handle:set_bold_highbright(on and true or false)
+   return self
+end
+
+
 --- Take what has changed on the screen since the last call.
 -- A terminal that is made with `changes = true` keeps what a program changes on
 -- its screen, in order, until they are taken, so that a program that draws the
@@ -614,6 +697,11 @@ local Terminal = {
    title = argscheck('lvterm.terminal.title (table)', title),
    bells = argscheck('lvterm.terminal.bells (table)', bells),
    changes = argscheck('lvterm.terminal.changes (table)', changes),
+   palette_color = argscheck('lvterm.terminal.palette_color (table, int)', palette_color),
+   set_palette_color = argscheck('lvterm.terminal.set_palette_color (table, int, table)', set_palette_color),
+   default_colors = argscheck('lvterm.terminal.default_colors (table)', default_colors),
+   set_default_colors = argscheck('lvterm.terminal.set_default_colors (table, <?table>, <?table>)', set_default_colors),
+   set_bold_highbright = argscheck('lvterm.terminal.set_bold_highbright (table, <?boolean>)', set_bold_highbright),
    output = argscheck('lvterm.terminal.output (table)', output),
 }
 Terminal.__index = Terminal

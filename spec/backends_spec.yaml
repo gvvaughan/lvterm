@@ -142,3 +142,9 @@ describe a backend that keeps what changes on the screen:
       if not both_backends then pending 'needs both backends' end
       expect(change_differences(noise(3000), 24, 80)).to_equal {}
       expect(change_differences(noise(3000), 7, 13)).to_equal {}
+
+describe a backend that has the colors of the terminal changed:
+- context when the palette and the defaults are set before the program writes:
+  - it draws the same as the other backend: |
+      if not both_backends then pending 'needs both backends' end
+      expect(color_differences '\27[1;31ma\27[38;5;9mb\27[38;2;1;2;3mc\27[0md').to_equal {}

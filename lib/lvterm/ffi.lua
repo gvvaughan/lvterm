@@ -119,11 +119,16 @@ int  vterm_state_set_termprop(VTermState *state, int prop, VTermValue *val);
 void vterm_state_focus_in(VTermState *state);
 void vterm_state_focus_out(VTermState *state);
 void vterm_state_get_cursorpos(const VTermState *state, VTermPos *cursorpos);
+void vterm_state_get_default_colors(const VTermState *state, VTermColor *default_fg, VTermColor *default_bg);
+void vterm_state_get_palette_color(const VTermState *state, int index, VTermColor *col);
+void vterm_state_set_palette_color(VTermState *state, int index, const VTermColor *col);
+void vterm_state_set_bold_highbright(VTermState *state, int bold_is_highbright);
 
 VTermScreen *vterm_obtain_screen(VTerm *vt);
 void   vterm_screen_set_callbacks(VTermScreen *screen, const VTermScreenCallbacks *callbacks, void *user);
 void   vterm_screen_enable_altscreen(VTermScreen *screen, int altscreen);
 void   vterm_screen_flush_damage(VTermScreen *screen);
+void   vterm_screen_set_default_colors(VTermScreen *screen, const VTermColor *default_fg, const VTermColor *default_bg);
 void   vterm_screen_set_damage_merge(VTermScreen *screen, int size);
 void   vterm_screen_reset(VTermScreen *screen, int hard);
 int    vterm_screen_get_cell(const VTermScreen *screen, VTermPos pos, VTermScreenCell *cell);
@@ -859,6 +864,68 @@ local function changes(self)
 end
 
 
+-- A color of libvterm as a table of `red`, `green` and `blue`.
+local function rgb_of(c)
+   return {red = c.rgb.red, green = c.rgb.green, blue = c.rgb.blue}
+end
+
+-- A color of libvterm that is a table of `red`, `green` and `blue`.
+local function vterm_color(t)
+   local c = ffi.new 'VTermColor'
+   c.rgb.type = 0
+   c.rgb.red, c.rgb.green, c.rgb.blue = t.red, t.green, t.blue
+   return c
+end
+
+
+--- The color that an index of the palette is.
+-- @function palette_color
+-- @int index the index, from 0 to 255
+-- @treturn table `red`, `green` and `blue`
+local function palette_color(self, index)
+   local c = ffi.new 'VTermColor'
+   C.vterm_state_get_palette_color(self.state, index, c)
+   return rgb_of(c)
+end
+
+
+--- Change the color that an index of the palette is.
+-- @function set_palette_color
+-- @int index the index, from 0 to 255
+-- @tparam table color `red`, `green` and `blue`
+local function set_palette_color(self, index, color)
+   C.vterm_state_set_palette_color(self.state, index, vterm_color(color))
+end
+
+
+--- The colors that cells are drawn in when the program has not set them.
+-- @function default_colors
+-- @treturn table foreground, with `red`, `green` and `blue`
+-- @treturn table background
+local function default_colors(self)
+   local fg, bg = ffi.new 'VTermColor', ffi.new 'VTermColor'
+   C.vterm_state_get_default_colors(self.state, fg, bg)
+   return rgb_of(fg), rgb_of(bg)
+end
+
+
+--- Change the colors that cells are drawn in when the program has not set them.
+-- @function set_default_colors
+-- @tparam table fg foreground, with `red`, `green` and `blue`
+-- @tparam table bg background
+local function set_default_colors(self, fg, bg)
+   C.vterm_screen_set_default_colors(self.screen, vterm_color(fg), vterm_color(bg))
+end
+
+
+--- Whether bold text is drawn in the bright color of its palette index.
+-- @function set_bold_highbright
+-- @bool on true to draw it so
+local function set_bold_highbright(self, on)
+   C.vterm_state_set_bold_highbright(self.state, on and 1 or 0)
+end
+
+
 --- Take how many times the program rang the bell.
 -- @function bells
 -- @treturn int the number of bells since the last call, which is forgotten
@@ -896,6 +963,11 @@ Handle = {
    title = title,
    bells = bells,
    changes = changes,
+   palette_color = palette_color,
+   set_palette_color = set_palette_color,
+   default_colors = default_colors,
+   set_default_colors = set_default_colors,
+   set_bold_highbright = set_bold_highbright,
 }
 Handle.__index = Handle
 

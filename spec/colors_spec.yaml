@@ -1,0 +1,76 @@
+before:
+  lvterm = require 'lvterm'
+
+  -- A color as `red,green,blue`.
+  function rgb(c)
+     return string.format('%d,%d,%d', c.red, c.green, c.blue)
+  end
+
+specify the colors of a terminal:
+- describe the palette:
+  - it has a color for every index from 0 to 255: |
+      local term = lvterm.new(3, 10)
+      for index = 0, 255 do
+         local c = term:palette_color(index)
+         expect(type(c.red) == 'number' and type(c.green) == 'number' and type(c.blue) == 'number').to_be(true)
+      end
+  - it has the colors of a cube of 6 by 6 by 6 from 16: |
+      local term = lvterm.new(3, 10)
+      expect(rgb(term:palette_color(16))).to_be '0,0,0'
+      expect(rgb(term:palette_color(196))).to_be '255,0,0'
+      expect(rgb(term:palette_color(231))).to_be '255,255,255'
+  - it changes a color without changing the others: |
+      local term = lvterm.new(3, 10)
+      local before = rgb(term:palette_color(2))
+      expect(term:set_palette_color(1, {red = 1, green = 2, blue = 3})).to_be(term)
+      expect(rgb(term:palette_color(1))).to_be '1,2,3'
+      expect(rgb(term:palette_color(2))).to_be(before)
+  - it is what a cell that is an index is drawn in, which is still the index: |
+      local term = lvterm.new(3, 10)
+      term:set_palette_color(7, {red = 9, green = 8, blue = 7})
+      term:write '\27[38;5;7mx'
+      expect(term:cell(0, 0).fg).to_be(7)
+      expect(rgb(term:palette_color(term:cell(0, 0).fg))).to_be '9,8,7'
+  - it is refused for an index that is not of the palette: |
+      local term = lvterm.new(3, 10)
+      expect(term:palette_color(256)).to_raise 'from 0 to 255'
+      expect(term:set_palette_color(-1, {red = 0, green = 0, blue = 0})).to_raise 'from 0 to 255'
+  - it is refused for a color that is not of red, green and blue from 0 to 255: |
+      local term = lvterm.new(3, 10)
+      expect(term:set_palette_color(1, {red = 300, green = 0, blue = 0})).to_raise 'red from 0 to 255'
+      expect(term:set_palette_color(1, {red = 0, green = 0})).to_raise 'blue from 0 to 255'
+- describe the default colors:
+  - it has a foreground and a background: |
+      local term = lvterm.new(3, 10)
+      local fg, bg = term:default_colors()
+      expect(rgb(fg)).not_to_be(rgb(bg))
+  - it changes both, or only the one that is passed: |
+      local term = lvterm.new(3, 10)
+      local _, bg = term:default_colors()
+      expect(term:set_default_colors({red = 10, green = 20, blue = 30})).to_be(term)
+      local fg2, bg2 = term:default_colors()
+      expect(rgb(fg2)).to_be '10,20,30'
+      expect(rgb(bg2)).to_be(rgb(bg))
+      term:set_default_colors(nil, {red = 1, green = 1, blue = 1})
+      fg2, bg2 = term:default_colors()
+      expect(rgb(fg2)).to_be '10,20,30'
+      expect(rgb(bg2)).to_be '1,1,1'
+  - it is still nil for a cell that has not been set to a color: |
+      local term = lvterm.new(3, 10)
+      term:set_default_colors({red = 10, green = 20, blue = 30}, {red = 1, green = 1, blue = 1})
+      term:write 'x'
+      expect(term:cell(0, 0).fg).to_be(nil)
+      expect(term:cell(0, 0).bg).to_be(nil)
+  - it is refused for a color that is not of red, green and blue: |
+      local term = lvterm.new(3, 10)
+      expect(term:set_default_colors({red = 1, green = 1, blue = 'x'})).to_raise 'blue from 0 to 255'
+- describe bold text:
+  - it is drawn in the index that it is set to by default: |
+      local term = lvterm.new(3, 10)
+      term:write '\27[1;31mR'
+      expect(term:cell(0, 0).fg).to_be(1)
+  - it is drawn in the bright color of the index when bold is set to use the bright colors: |
+      local term = lvterm.new(3, 10)
+      expect(term:set_bold_highbright(true)).to_be(term)
+      term:write '\27[1;31mR'
+      expect(term:cell(0, 0).fg).to_be(9)

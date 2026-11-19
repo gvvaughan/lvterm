@@ -91,6 +91,8 @@ about a position that is not on the screen is an error.
 | `term:runs(row)`             | returns one row as runs of cells that are drawn alike |
 | `term:cursor()`              | returns the row and column of the cursor       |
 | `term:changes()`             | returns what changed on the screen since the last call |
+| `term:palette_color(index)`  | returns the `red`, `green` and `blue` of a color of the palette |
+| `term:default_colors()`      | returns the foreground and background that cells have by default |
 | `term:size()`                | returns the height and width                   |
 | `term:resize(rows, cols)`    | changes the size, and returns the terminal     |
 | `term:reset(hard)`           | returns to the initial state, and forgets the screen unless `hard` is `false` |
@@ -156,6 +158,19 @@ The `ffi` backend passes the rectangles that libvterm passes in the registers
 that x86-64 and arm64 pass them in, so it keeps changes there, except for
 Windows. Anywhere else `lvterm.new` with `changes = true` fails, and the
 `core` backend does it.
+
+
+### Colors
+
+A cell that a program set to a color of the palette of 256 has the index in its
+`fg` or `bg`, and a cell that it has not has nil. What those are drawn in is
+read with `term:palette_color(index)`, which is a table with `red`, `green`
+and `blue` from 0 to 255, and `term:default_colors()`, which is the foreground
+and then the background. A program that draws the screen with its own colors
+changes them with `term:set_palette_color(index, color)` and
+`term:set_default_colors(fg, bg)`, which keeps one that is nil, and
+`term:set_bold_highbright(true)` has bold text of the first 8 colors drawn in
+the 8 that are bright, as many terminals do.
 
 
 ## 3. Scrollback and the alternate screen

@@ -134,3 +134,23 @@ specify lvterm:
 - describe changes:
   - context with bad arguments:
       badargs.diagnose('lvterm.terminal.changes (table)', term.changes)
+
+- describe palette_color:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.palette_color (table, int)', term.palette_color)
+
+- describe set_palette_color:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.set_palette_color (table, int, table)', term.set_palette_color)
+
+- describe default_colors:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.default_colors (table)', term.default_colors)
+
+- describe set_default_colors:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.set_default_colors (table, <?table>, <?table>)', term.set_default_colors)
+
+- describe set_bold_highbright:
+  - context with bad arguments:
+      badargs.diagnose('lvterm.terminal.set_bold_highbright (table, <?boolean>)', term.set_bold_highbright)

@@ -19,6 +19,14 @@
     it cannot keep them on other platforms, nor on Windows, and fails to
     make the terminal.
 
+  - `palette_color(index)` and `default_colors()` return the colors that a
+    cell of an index of the palette, and a cell that is not set to a color,
+    are drawn in, as tables of `red`, `green` and `blue`.
+    `set_palette_color(index, color)`, `set_default_colors(fg, bg)` and
+    `set_bold_highbright(on)` change them, and bold text of the first 8
+    colors is then an index of the bright 8.  Both backends return
+    the same colors.
+
 ### Bug fixes
 
   - `write` holds back the first bytes of a character of UTF-8 whose other

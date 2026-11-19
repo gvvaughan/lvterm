@@ -87,6 +87,44 @@ local function described(term)
 end
 
 
+--- What the `ffi` and `core` backends disagree about the colors of a terminal.
+-- Each is made a terminal, which has some of its colors changed, and then
+-- fed bytes that use them, and the palette, the defaults and the cells compared.
+-- @string stream what to write to both
+-- @treturn {string,...} descriptions of the differences, none if the same
+function color_differences(stream)
+   local a = terminal.new(ffi_backend.new(3, 20), 3, 20)
+   local b = terminal.new(core_backend.new(3, 20), 3, 20)
+   local diffs = {}
+   local function same(x, y)
+      return x.red == y.red and x.green == y.green and x.blue == y.blue
+   end
+   for _, t in ipairs {a, b} do
+      t:set_palette_color(9, {red = 1, green = 2, blue = 3})
+      t:set_default_colors({red = 4, green = 5, blue = 6}, {red = 7, green = 8, blue = 9})
+      t:set_bold_highbright(true)
+      t:write(stream)
+   end
+   for i = 0, 255 do
+      if not same(a:palette_color(i), b:palette_color(i)) then
+         diffs[#diffs + 1] = 'palette ' .. i
+      end
+   end
+   local afg, abg = a:default_colors()
+   local bfg, bbg = b:default_colors()
+   if not (same(afg, bfg) and same(abg, bbg)) then
+      diffs[#diffs + 1] = 'default colors'
+   end
+   for col = 0, 19 do
+      local x, y = a:cell(0, col), b:cell(0, col)
+      if x.fg ~= y.fg and not (type(x.fg) == 'table' and type(y.fg) == 'table' and same(x.fg, y.fg)) then
+         diffs[#diffs + 1] = 'fg at ' .. col
+      end
+   end
+   return diffs
+end
+
+
 --- What the `ffi` and `core` backends disagree about the changes of the screen.
 -- Each is made a terminal that keeps its changes, fed the same bytes, then resized,
 -- and fed more, and the changes that each has are compared after every step.
